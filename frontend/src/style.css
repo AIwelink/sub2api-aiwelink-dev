@@ -64,6 +64,13 @@
 }
 
 @layer components {
+  .brand-grid {
+    background-image:
+      linear-gradient(rgb(var(--color-primary-500) / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--color-primary-500) / 0.04) 1px, transparent 1px);
+    background-size: 64px 64px;
+  }
+
   /* ============ 按钮样式 ============ */
   .btn {
     @apply inline-flex items-center justify-center gap-2;
