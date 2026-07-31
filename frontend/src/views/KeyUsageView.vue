@@ -206,14 +206,14 @@
                     />
                     <defs>
                       <linearGradient :id="`ring-grad-${i}`" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" :stop-color="RING_GRADIENTS[i % 4].from"/>
-                        <stop offset="100%" :stop-color="RING_GRADIENTS[i % 4].to"/>
+                        <stop offset="0%" :stop-color="ringGradients[i % 4].from"/>
+                        <stop offset="100%" :stop-color="ringGradients[i % 4].to"/>
                       </linearGradient>
                     </defs>
                   </svg>
                   <div class="absolute inset-0 flex flex-col items-center justify-center">
                     <template v-if="ring.isBalance">
-                      <span class="text-2xl font-bold tabular-nums" :style="{ color: RING_GRADIENTS[i % 4].from }">
+                      <span class="text-2xl font-bold tabular-nums" :style="{ color: ringGradients[i % 4].from }">
                         {{ ring.amount }}
                       </span>
                     </template>
@@ -224,7 +224,7 @@
                       <span class="text-xs text-gray-500 dark:text-dark-400 mt-0.5">{{ t('keyUsage.used') }}</span>
                       <span
                         class="text-sm font-semibold mt-1 tabular-nums"
-                        :style="{ color: RING_GRADIENTS[i % 4].from }"
+                        :style="{ color: ringGradients[i % 4].from }"
                       >{{ ring.amount }}</span>
                       <p v-if="ring.resetAt && formatResetTime(ring.resetAt)" class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 tabular-nums">
                         ⟳ {{ formatResetTime(ring.resetAt) }}
@@ -425,9 +425,11 @@ import Icon from '@/components/icons/Icon.vue'
 import { buildGatewayUrl } from '@/api/client'
 import { formatDateLocalInput } from '@/utils/format'
 import { sanitizeUrl } from '@/utils/url'
+import { useThemePalette } from '@/composables/useThemePalette'
 
 const { t, locale } = useI18n()
 const appStore = useAppStore()
+const themePalette = useThemePalette()
 
 // ==================== Site Settings (same as HomeView) ====================
 
@@ -526,17 +528,17 @@ function setDailyUsageDays(days: 7 | 30 | 90) {
 // ==================== Ring Animation ====================
 
 const CIRCUMFERENCE = 2 * Math.PI * 68
-const RING_GRADIENTS = [
-  { from: '#14b8a6', to: '#5eead4' },
+const ringGradients = computed(() => [
+  { from: themePalette.value.primary, to: themePalette.value.accent },
   { from: '#6366F1', to: '#A5B4FC' },
   { from: '#10B981', to: '#6EE7B7' },
   { from: '#F59E0B', to: '#FCD34D' },
-]
+])
 
 const ringAnimated = ref(false)
 const displayPcts = ref<number[]>([])
 
-const ringTrackColor = computed(() => isDark.value ? '#222222' : '#F0F0EE')
+const ringTrackColor = computed(() => themePalette.value.grid)
 
 interface RingItem {
   title: string
