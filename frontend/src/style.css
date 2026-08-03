@@ -86,6 +86,63 @@
     @apply text-on-primary shadow-md shadow-primary-500/25;
     @apply hover:from-primary-600 hover:to-primary-700 hover:shadow-lg hover:shadow-primary-500/30;
     @apply dark:shadow-primary-500/20;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    box-shadow:
+      0 8px 22px rgb(var(--color-primary-500) / 0.22),
+      0 1px 0 rgb(255 255 255 / 0.24) inset;
+  }
+
+  .btn-primary::before {
+    position: absolute;
+    top: -65%;
+    bottom: -65%;
+    left: -55%;
+    width: 34%;
+    pointer-events: none;
+    content: "";
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 255 255 / 0.3),
+      transparent
+    );
+    transform: skewX(-18deg);
+    animation: primary-button-sheen 3.8s ease-in-out infinite;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow:
+      0 12px 30px rgb(var(--color-primary-500) / 0.34),
+      0 1px 0 rgb(255 255 255 / 0.28) inset;
+  }
+
+  .btn-primary:disabled {
+    box-shadow: none;
+  }
+
+  .btn-primary:disabled::before {
+    display: none;
+  }
+
+  @keyframes primary-button-sheen {
+    0%,
+    58% {
+      left: -55%;
+      opacity: 0;
+    }
+
+    66% {
+      opacity: 0.7;
+    }
+
+    84%,
+    100% {
+      left: 125%;
+      opacity: 0;
+    }
   }
 
   .btn-secondary {
@@ -466,6 +523,15 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .btn-primary::before {
+      animation: none;
+      opacity: 0;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: none;
+    }
+
     .modal-enter-active,
     .modal-leave-active,
     .modal-enter-active .modal-content,
@@ -575,6 +641,9 @@
     @apply bg-primary-50 dark:bg-primary-900/20;
     @apply text-primary-600 dark:text-primary-400;
     @apply hover:bg-primary-100 dark:hover:bg-primary-900/30;
+    box-shadow:
+      0 0 0 1px rgb(var(--color-primary-500) / 0.18) inset,
+      0 7px 18px rgb(var(--color-primary-500) / 0.14);
   }
 
   .sidebar-section {
@@ -651,6 +720,9 @@
     @apply bg-white dark:bg-dark-700;
     @apply text-gray-900 dark:text-white;
     @apply shadow-sm;
+    box-shadow:
+      0 0 0 1px rgb(var(--color-primary-500) / 0.18) inset,
+      0 7px 18px rgb(var(--color-primary-500) / 0.14);
   }
 
   /* ============ 进度条 ============ */
