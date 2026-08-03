@@ -51,15 +51,15 @@ export function useThemePalette(): ComputedRef<ThemePalette> {
   return computed(() => {
     void revision.value
 
-    const primary = readThemeColor('--color-primary-500', '#BA3650')
-    const accent = readThemeColor('--color-accent-500', '#E9BE73')
+    const primary = readThemeColor('--color-primary-500', '#D21F4B')
+    const accent = readThemeColor('--color-accent-500', '#F4BD38')
 
     return {
       primary,
       primaryAlpha: withAlpha(primary, 0.125),
       accent,
-      grid: readThemeColor('--color-theme-border', '#E4E8EA'),
-      text: readThemeColor('--color-theme-muted', '#65727A'),
+      grid: readThemeColor('--color-theme-border', '#D9E0E4'),
+      text: readThemeColor('--color-theme-muted', '#63717A'),
       tooltipSurface: readThemeColor('--color-surface', '#FFFFFF'),
       chartSeries: [
         primary,
