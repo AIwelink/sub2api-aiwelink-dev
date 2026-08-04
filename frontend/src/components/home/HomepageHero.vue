@@ -73,7 +73,7 @@ h1 {
 }
 
 .hero-brand { color: var(--home-primary); transition: none; }
-.hero-api { color: #ef3f72; transition: none; }
+.hero-api { color: var(--home-accent); transition: none; }
 
 .hero-description {
   max-width: 620px;

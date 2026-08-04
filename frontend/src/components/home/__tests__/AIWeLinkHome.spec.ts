@@ -77,12 +77,15 @@ describe('AIWeLinkHome', () => {
     expect(wrapper.classes()).toContain('is-dark')
   })
 
-  it('defines blue light-mode accents while retaining gold in dark mode', () => {
+  it('defines a grayscale light theme while retaining gold in dark mode', () => {
     const source = readFileSync(resolve('src/components/home/AIWeLinkHome.vue'), 'utf8')
 
-    expect(source).toContain('--home-primary: #2563eb')
-    expect(source).toContain('--home-primary-rgb: 37, 99, 235')
+    expect(source).toContain('--home-canvas-layer: linear-gradient(')
+    expect(source).toContain('--home-primary: #111111')
+    expect(source).toContain('--home-primary-rgb: 17, 17, 17')
+    expect(source).toContain('--home-accent: #242424')
     expect(source).toMatch(/\.aiwelink-home\.is-dark\s*{[^}]*--home-primary:\s*#ffc648/s)
+    expect(source).toMatch(/\.aiwelink-home\.is-dark\s*{[^}]*--home-accent:\s*#ef3f72/s)
   })
 
   it('moves from thinking to editor composition, component reveal, and then the ready homepage', async () => {

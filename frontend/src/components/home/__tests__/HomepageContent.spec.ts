@@ -1,5 +1,7 @@
 import { defineComponent } from 'vue'
 import { mount, RouterLinkStub } from '@vue/test-utils'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 
 import HomepageFinalCta from '../HomepageFinalCta.vue'
@@ -57,6 +59,23 @@ function mountContent(authenticated = false, dashboardPath = '/dashboard') {
 }
 
 describe('AIWeLink homepage content', () => {
+  it('keeps warm and blue accents out of content components', () => {
+    const componentSources = [
+      'HomepageFinalCta.vue',
+      'HomepageHero.vue',
+      'HomepageModels.vue',
+      'HomepageNavigation.vue',
+      'HomepagePricing.vue',
+      'HomepageUseCases.vue',
+    ].map((file) => readFileSync(resolve('src/components/home', file), 'utf8'))
+
+    componentSources.forEach((source) => {
+      expect(source).not.toContain('#ef3f72')
+      expect(source).not.toContain('#2563eb')
+      expect(source).not.toContain('37, 99, 235')
+    })
+  })
+
   it('renders the approved unframed content without a model count or carousel', () => {
     const wrapper = mountContent()
     const text = wrapper.text()

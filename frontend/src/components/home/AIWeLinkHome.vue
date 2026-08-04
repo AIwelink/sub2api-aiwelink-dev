@@ -157,21 +157,23 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .aiwelink-home {
-  --home-canvas: #f4f6f8;
-  --home-text: #171a1f;
-  --home-muted: #626b77;
-  --home-faint: #8c949e;
-  --home-soft: rgba(14, 18, 24, .055);
-  --home-hover: rgba(14, 18, 24, .09);
-  --home-primary: #2563eb;
-  --home-primary-rgb: 37, 99, 235;
+  --home-canvas: #f7f7f7;
+  --home-canvas-layer: linear-gradient(145deg, #fff 0%, #f7f7f7 52%, #ededed 100%);
+  --home-text: #101010;
+  --home-muted: #5f5f5f;
+  --home-faint: #858585;
+  --home-soft: rgba(0, 0, 0, .045);
+  --home-hover: rgba(0, 0, 0, .08);
+  --home-primary: #111111;
+  --home-primary-rgb: 17, 17, 17;
   --home-primary-contrast: #fff;
+  --home-accent: #242424;
 
   position: relative;
   min-height: 100vh;
   overflow-x: clip;
   color: var(--home-text);
-  background: var(--home-canvas);
+  background: var(--home-canvas-layer);
   font-family: "Aptos", "Segoe UI Variable", "Microsoft YaHei", system-ui, sans-serif;
   letter-spacing: 0;
   transition: color 240ms ease, background 240ms ease;
@@ -179,6 +181,7 @@ onBeforeUnmount(() => {
 
 .aiwelink-home.is-dark {
   --home-canvas: #050608;
+  --home-canvas-layer: #050608;
   --home-text: #f6f3eb;
   --home-muted: #a5aab3;
   --home-faint: #6f7681;
@@ -187,6 +190,7 @@ onBeforeUnmount(() => {
   --home-primary: #ffc648;
   --home-primary-rgb: 255, 198, 72;
   --home-primary-contrast: #181005;
+  --home-accent: #ef3f72;
 }
 
 .homepage-content {

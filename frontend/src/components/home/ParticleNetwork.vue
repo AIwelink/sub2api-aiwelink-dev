@@ -29,8 +29,9 @@ interface Particle {
 
 const LINK_DISTANCE = 150
 const POINTER_DISTANCE = 150
-const LIGHT_BLUE = '59, 130, 246'
+const LIGHT_AMBER = '198, 121, 20'
 const DARK_GOLD = '255, 198, 72'
+const WARM_ROSE = '239, 63, 114'
 const CLUSTER_CHECK_INTERVAL = 90
 const CLUSTER_RADIUS_RATIO = .16
 const CLUSTER_PARTICLE_RATIO = .4
@@ -216,10 +217,13 @@ function disperseDenseCluster() {
   })
 }
 
+function connectionColor(isDark: boolean, rose: boolean) {
+  if (isDark) return DARK_GOLD
+  return rose ? WARM_ROSE : LIGHT_AMBER
+}
+
 function drawConnections(isDark: boolean) {
   if (!context) return
-
-  const color = isDark ? DARK_GOLD : LIGHT_BLUE
 
   for (let firstIndex = 0; firstIndex < particles.length; firstIndex += 1) {
     const first = particles[firstIndex]
@@ -230,7 +234,8 @@ function drawConnections(isDark: boolean) {
       const distance = Math.hypot(deltaX, deltaY)
       if (distance > LINK_DISTANCE) continue
 
-      const baseAlpha = (1 - distance / LINK_DISTANCE) * (isDark ? .24 : .15)
+      const baseAlpha = (1 - distance / LINK_DISTANCE) * (isDark ? .24 : .18)
+      const color = connectionColor(isDark, first.rose || second.rose)
 
       context.beginPath()
       context.moveTo(first.x, first.y)
@@ -245,7 +250,6 @@ function drawConnections(isDark: boolean) {
 function drawPointerConnections(isDark: boolean) {
   if (!context || !props.interactive || pointer.x < 0 || pointer.y < 0) return
 
-  const color = isDark ? DARK_GOLD : LIGHT_BLUE
   particles.forEach((particle) => {
     const distance = Math.hypot(particle.x - pointer.x, particle.y - pointer.y)
     if (distance > POINTER_DISTANCE) return
@@ -255,7 +259,7 @@ function drawPointerConnections(isDark: boolean) {
     context!.moveTo(particle.x, particle.y)
     context!.lineTo(pointer.x, pointer.y)
     context!.lineWidth = 1
-    context!.strokeStyle = `rgba(${color}, ${alpha})`
+    context!.strokeStyle = `rgba(${connectionColor(isDark, particle.rose)}, ${alpha})`
     context!.stroke()
   })
 }
@@ -267,9 +271,9 @@ function drawParticles(isDark: boolean) {
     const pointOpacity = Math.min(.64, particle.opacity + (isDark ? .16 : 0))
     context!.beginPath()
     context!.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2)
-    context!.fillStyle = isDark && particle.rose
-      ? `rgba(239, 63, 114, ${Math.min(.72, pointOpacity + .08)})`
-      : `rgba(${isDark ? DARK_GOLD : LIGHT_BLUE}, ${pointOpacity})`
+    context!.fillStyle = particle.rose
+      ? `rgba(${WARM_ROSE}, ${Math.min(.72, pointOpacity + .08)})`
+      : `rgba(${isDark ? DARK_GOLD : LIGHT_AMBER}, ${pointOpacity})`
     context!.fill()
   })
 }

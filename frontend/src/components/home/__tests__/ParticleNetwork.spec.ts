@@ -5,6 +5,7 @@ import { nextTick } from 'vue'
 import ParticleNetwork from '../ParticleNetwork.vue'
 
 const strokeStyles: string[] = []
+const fillStyles: string[] = []
 
 const context = {
   clearRect: vi.fn(),
@@ -21,7 +22,12 @@ const context = {
   set strokeStyle(value: string) {
     strokeStyles.push(value)
   },
-  fillStyle: '',
+  get fillStyle() {
+    return fillStyles.at(-1) ?? ''
+  },
+  set fillStyle(value: string) {
+    fillStyles.push(value)
+  },
   lineWidth: 1,
   globalAlpha: 1,
 }
@@ -54,6 +60,7 @@ function mockClusteredParticles(clusteredCount: number) {
 describe('ParticleNetwork', () => {
   beforeEach(() => {
     strokeStyles.length = 0
+    fillStyles.length = 0
     document.documentElement.classList.remove('dark')
     Object.values(context).forEach((value) => {
       if (typeof value === 'function' && 'mockClear' in value) value.mockClear()
@@ -84,13 +91,17 @@ describe('ParticleNetwork', () => {
     vi.unstubAllGlobals()
   })
 
-  it('uses the reference blue for visible light-theme connections', async () => {
+  it('uses warm gold and sparse rose only in the light-theme canvas', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     const wrapper = mount(ParticleNetwork, { props: { interactive: false } })
     await nextTick()
 
     expect(maxConnectionAlpha()).toBeGreaterThanOrEqual(.14)
-    expect(strokeStyles.some((style) => style.startsWith('rgba(59, 130, 246,'))).toBe(true)
+    expect(strokeStyles.some((style) => style.startsWith('rgba(198, 121, 20,'))).toBe(true)
+    expect(strokeStyles.some((style) => style.startsWith('rgba(239, 63, 114,'))).toBe(true)
+    expect(strokeStyles.some((style) => style.startsWith('rgba(59, 130, 246,'))).toBe(false)
+    expect(fillStyles.some((style) => style.startsWith('rgba(198, 121, 20,'))).toBe(true)
+    expect(fillStyles.some((style) => style.startsWith('rgba(239, 63, 114,'))).toBe(true)
     wrapper.unmount()
   })
 

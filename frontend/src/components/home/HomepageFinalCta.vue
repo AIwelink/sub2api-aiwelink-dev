@@ -39,7 +39,7 @@ const year = new Date().getFullYear()
 }
 
 .final-inner { width: min(760px, 100%); }
-.final-inner > p { margin: 0 0 20px; color: #ef3f72; font-family: "Cascadia Code", monospace; font-size: 11px; font-weight: 700; }
+.final-inner > p { margin: 0 0 20px; color: var(--home-accent); font-family: "Cascadia Code", monospace; font-size: 11px; font-weight: 700; }
 .final-inner h2 { margin: 0; color: var(--home-text); font-size: 46px; line-height: 1.15; }
 .final-inner > span { display: block; margin-top: 18px; color: var(--home-muted); font-size: 15px; }
 .final-command { display: inline-flex; min-height: 46px; align-items: center; justify-content: center; margin-top: 30px; padding: 0 24px; border-radius: 5px; color: var(--home-primary-contrast); background: var(--home-primary); box-shadow: 0 10px 30px rgba(var(--home-primary-rgb), .28); font-size: 14px; font-weight: 700; text-decoration: none; transition: transform 180ms ease, box-shadow 180ms ease; }
