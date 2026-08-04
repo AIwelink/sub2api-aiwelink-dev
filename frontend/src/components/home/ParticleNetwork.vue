@@ -20,9 +20,22 @@ interface Particle {
   y: number
   vx: number
   vy: number
+  burstVx: number
+  burstVy: number
   radius: number
+  opacity: number
   rose: boolean
 }
+
+const LINK_DISTANCE = 150
+const POINTER_DISTANCE = 150
+const LIGHT_BLUE = '59, 130, 246'
+const DARK_GOLD = '255, 198, 72'
+const CLUSTER_CHECK_INTERVAL = 90
+const CLUSTER_RADIUS_RATIO = .16
+const CLUSTER_PARTICLE_RATIO = .4
+const CLUSTER_IMPULSE = 8
+const BURST_DECAY = .975
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const pointer = { x: -1000, y: -1000 }
@@ -37,20 +50,27 @@ let themeObserver: MutationObserver | null = null
 let mediaQuery: MediaQueryList | null = null
 let reducedMotion = false
 let destroyed = false
+let clusterCheckCooldown = 0
 
 function particleCount() {
-  return width <= 760 ? 45 : 120
+  if (width <= 760) return 45
+
+  const referenceDensity = Math.round((width * height * 120) / 800_000)
+  return Math.min(180, Math.max(72, referenceDensity))
 }
 
 function createParticle(index: number): Particle {
   const angle = Math.random() * Math.PI * 2
-  const speed = .09 + Math.random() * .16
+  const speed = .16 + Math.random() * .24
   return {
     x: Math.random() * width,
     y: Math.random() * height,
     vx: Math.cos(angle) * speed,
     vy: Math.sin(angle) * speed,
-    radius: .8 + Math.random() * 1.2,
+    burstVx: 0,
+    burstVy: 0,
+    radius: .2 + Math.random() * 2.3,
+    opacity: .18 + Math.random() * .24,
     rose: index % 11 === 0,
   }
 }
@@ -97,20 +117,109 @@ function resizeCanvas() {
 }
 
 function updateParticle(particle: Particle) {
-  particle.x += particle.vx
-  particle.y += particle.vy
+  const speed = Math.hypot(particle.vx, particle.vy)
+  if (speed > .62) {
+    const scale = .62 / speed
+    particle.vx *= scale
+    particle.vy *= scale
+  }
 
-  if (particle.x < -8) particle.x = width + 8
-  if (particle.x > width + 8) particle.x = -8
-  if (particle.y < -8) particle.y = height + 8
-  if (particle.y > height + 8) particle.y = -8
+  particle.x += particle.vx + particle.burstVx
+  particle.y += particle.vy + particle.burstVy
+  particle.burstVx *= BURST_DECAY
+  particle.burstVy *= BURST_DECAY
+
+  if (Math.abs(particle.burstVx) < .005) particle.burstVx = 0
+  if (Math.abs(particle.burstVy) < .005) particle.burstVy = 0
+
+  if (particle.x <= particle.radius) {
+    particle.x = particle.radius
+    particle.vx = Math.abs(particle.vx)
+    particle.burstVx = Math.abs(particle.burstVx)
+  } else if (particle.x >= width - particle.radius) {
+    particle.x = width - particle.radius
+    particle.vx = -Math.abs(particle.vx)
+    particle.burstVx = -Math.abs(particle.burstVx)
+  }
+
+  if (particle.y <= particle.radius) {
+    particle.y = particle.radius
+    particle.vy = Math.abs(particle.vy)
+    particle.burstVy = Math.abs(particle.burstVy)
+  } else if (particle.y >= height - particle.radius) {
+    particle.y = height - particle.radius
+    particle.vy = -Math.abs(particle.vy)
+    particle.burstVy = -Math.abs(particle.burstVy)
+  }
+}
+
+function applyPairForces() {
+  for (let firstIndex = 0; firstIndex < particles.length; firstIndex += 1) {
+    const first = particles[firstIndex]
+    for (let secondIndex = firstIndex + 1; secondIndex < particles.length; secondIndex += 1) {
+      const second = particles[secondIndex]
+      const deltaX = first.x - second.x
+      const deltaY = first.y - second.y
+      const distance = Math.hypot(deltaX, deltaY)
+      if (distance === 0 || distance > LINK_DISTANCE) continue
+
+      const attractionX = deltaX / 600_000
+      const attractionY = deltaY / 1_200_000
+      first.vx -= attractionX
+      first.vy -= attractionY
+      second.vx += attractionX
+      second.vy += attractionY
+    }
+  }
+}
+
+function disperseDenseCluster() {
+  if (clusterCheckCooldown > 0) {
+    clusterCheckCooldown -= 1
+    return
+  }
+  clusterCheckCooldown = CLUSTER_CHECK_INTERVAL
+
+  const clusterRadius = Math.min(width, height) * CLUSTER_RADIUS_RATIO
+  let clusteredParticles: Particle[] = []
+
+  particles.forEach((seed) => {
+    const nearbyParticles = particles.filter((particle) => (
+      Math.hypot(particle.x - seed.x, particle.y - seed.y) <= clusterRadius
+    ))
+    if (nearbyParticles.length > clusteredParticles.length) {
+      clusteredParticles = nearbyParticles
+    }
+  })
+
+  if (clusteredParticles.length < particles.length * CLUSTER_PARTICLE_RATIO) return
+
+  const clusterCenter = clusteredParticles.reduce((center, particle) => ({
+    x: center.x + particle.x / clusteredParticles.length,
+    y: center.y + particle.y / clusteredParticles.length,
+  }), { x: 0, y: 0 })
+
+  clusteredParticles.forEach((particle, index) => {
+    let deltaX = particle.x - clusterCenter.x
+    let deltaY = particle.y - clusterCenter.y
+    let distance = Math.hypot(deltaX, deltaY)
+
+    if (distance < .01) {
+      const angle = (index / clusteredParticles.length) * Math.PI * 2
+      deltaX = Math.cos(angle)
+      deltaY = Math.sin(angle)
+      distance = 1
+    }
+
+    particle.burstVx = (deltaX / distance) * CLUSTER_IMPULSE
+    particle.burstVy = (deltaY / distance) * CLUSTER_IMPULSE
+  })
 }
 
 function drawConnections(isDark: boolean) {
   if (!context) return
 
-  const maxDistance = width <= 760 ? 112 : 132
-  const pointerRadius = 185
+  const color = isDark ? DARK_GOLD : LIGHT_BLUE
 
   for (let firstIndex = 0; firstIndex < particles.length; firstIndex += 1) {
     const first = particles[firstIndex]
@@ -119,35 +228,48 @@ function drawConnections(isDark: boolean) {
       const deltaX = first.x - second.x
       const deltaY = first.y - second.y
       const distance = Math.hypot(deltaX, deltaY)
-      if (distance > maxDistance) continue
+      if (distance > LINK_DISTANCE) continue
 
-      const midpointX = (first.x + second.x) / 2
-      const midpointY = (first.y + second.y) / 2
-      const pointerDistance = Math.hypot(midpointX - pointer.x, midpointY - pointer.y)
-      const pointerBoost = props.interactive && pointerDistance < pointerRadius
-        ? (1 - pointerDistance / pointerRadius) * .12
-        : 0
-      const baseAlpha = (1 - distance / maxDistance) * (isDark ? .22 : .145)
+      const baseAlpha = (1 - distance / LINK_DISTANCE) * (isDark ? .24 : .15)
 
       context.beginPath()
       context.moveTo(first.x, first.y)
       context.lineTo(second.x, second.y)
-      context.lineWidth = pointerBoost > 0 ? .85 : .55
-      context.strokeStyle = `rgba(255, 198, 72, ${baseAlpha + pointerBoost})`
+      context.lineWidth = .9
+      context.strokeStyle = `rgba(${color}, ${baseAlpha})`
       context.stroke()
     }
   }
+}
+
+function drawPointerConnections(isDark: boolean) {
+  if (!context || !props.interactive || pointer.x < 0 || pointer.y < 0) return
+
+  const color = isDark ? DARK_GOLD : LIGHT_BLUE
+  particles.forEach((particle) => {
+    const distance = Math.hypot(particle.x - pointer.x, particle.y - pointer.y)
+    if (distance > POINTER_DISTANCE) return
+
+    const alpha = (1 - distance / POINTER_DISTANCE) * .4
+    context!.beginPath()
+    context!.moveTo(particle.x, particle.y)
+    context!.lineTo(pointer.x, pointer.y)
+    context!.lineWidth = 1
+    context!.strokeStyle = `rgba(${color}, ${alpha})`
+    context!.stroke()
+  })
 }
 
 function drawParticles(isDark: boolean) {
   if (!context) return
 
   particles.forEach((particle) => {
+    const pointOpacity = Math.min(.64, particle.opacity + (isDark ? .16 : 0))
     context!.beginPath()
     context!.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2)
-    context!.fillStyle = particle.rose
-      ? `rgba(239, 63, 114, ${isDark ? .82 : .66})`
-      : `rgba(255, 198, 72, ${isDark ? .72 : .58})`
+    context!.fillStyle = isDark && particle.rose
+      ? `rgba(239, 63, 114, ${Math.min(.72, pointOpacity + .08)})`
+      : `rgba(${isDark ? DARK_GOLD : LIGHT_BLUE}, ${pointOpacity})`
     context!.fill()
   })
 }
@@ -157,8 +279,13 @@ function drawFrame(update: boolean) {
   const isDark = document.documentElement.classList.contains('dark')
 
   context.clearRect(0, 0, width, height)
-  if (update) particles.forEach(updateParticle)
+  if (update) {
+    disperseDenseCluster()
+    applyPairForces()
+    particles.forEach(updateParticle)
+  }
   drawConnections(isDark)
+  drawPointerConnections(isDark)
   drawParticles(isDark)
 }
 

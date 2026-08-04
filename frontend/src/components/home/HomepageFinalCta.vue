@@ -10,7 +10,7 @@
     </div>
   </section>
   <footer class="home-footer">
-    <div><span>© {{ year }} AIWELINK</span><span>GPT · Claude · Gemini</span></div>
+    <div><span>© {{ year }} AIwelink</span><span>GPT · Claude · Gemini</span></div>
   </footer>
 </template>
 
@@ -42,8 +42,8 @@ const year = new Date().getFullYear()
 .final-inner > p { margin: 0 0 20px; color: #ef3f72; font-family: "Cascadia Code", monospace; font-size: 11px; font-weight: 700; }
 .final-inner h2 { margin: 0; color: var(--home-text); font-size: 46px; line-height: 1.15; }
 .final-inner > span { display: block; margin-top: 18px; color: var(--home-muted); font-size: 15px; }
-.final-command { display: inline-flex; min-height: 46px; align-items: center; justify-content: center; margin-top: 30px; padding: 0 24px; border-radius: 5px; color: #181005; background: #ffc648; box-shadow: 0 10px 30px rgba(255, 198, 72, .28); font-size: 14px; font-weight: 700; text-decoration: none; transition: transform 180ms ease, box-shadow 180ms ease; }
-.final-command:hover { transform: translateY(-1px); box-shadow: 0 14px 36px rgba(255, 198, 72, .36); }
+.final-command { display: inline-flex; min-height: 46px; align-items: center; justify-content: center; margin-top: 30px; padding: 0 24px; border-radius: 5px; color: var(--home-primary-contrast); background: var(--home-primary); box-shadow: 0 10px 30px rgba(var(--home-primary-rgb), .28); font-size: 14px; font-weight: 700; text-decoration: none; transition: transform 180ms ease, box-shadow 180ms ease; }
+.final-command:hover { transform: translateY(-1px); box-shadow: 0 14px 36px rgba(var(--home-primary-rgb), .36); }
 .home-footer { position: relative; padding: 28px 24px 38px; color: var(--home-faint); font-size: 12px; }
 .home-footer > div { display: flex; width: min(1040px, 100%); justify-content: space-between; gap: 20px; margin: 0 auto; }
 

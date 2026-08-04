@@ -3,7 +3,7 @@
     <div class="hero-inner">
       <p class="hero-eyebrow">{{ t('home.redesign.hero.eyebrow') }}</p>
       <h1>
-        <span class="hero-brand">AIWELINK</span>
+        <span class="hero-brand">AIwelink</span>
         {{ ' ' }}
         <span class="hero-api">API</span>
       </h1>
@@ -54,7 +54,7 @@ const destination = computed(() => props.authenticated ? props.dashboardPath : '
 
 .hero-eyebrow {
   margin: 0 0 24px;
-  color: #ffc648;
+  color: var(--home-primary);
   font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
   font-size: 12px;
   font-weight: 700;
@@ -72,7 +72,7 @@ h1 {
   letter-spacing: 0;
 }
 
-.hero-brand { color: #ffc648; transition: none; }
+.hero-brand { color: var(--home-primary); transition: none; }
 .hero-api { color: #ef3f72; transition: none; }
 
 .hero-description {
@@ -108,9 +108,9 @@ h1 {
 .hero-primary {
   position: relative;
   overflow: hidden;
-  color: #181005;
-  background: #ffc648;
-  box-shadow: 0 10px 30px rgba(255, 198, 72, .28);
+  color: var(--home-primary-contrast);
+  background: var(--home-primary);
+  box-shadow: 0 10px 30px rgba(var(--home-primary-rgb), .28);
 }
 
 .hero-primary::after {
@@ -125,7 +125,7 @@ h1 {
 
 .hero-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 14px 38px rgba(255, 198, 72, .38);
+  box-shadow: 0 14px 38px rgba(var(--home-primary-rgb), .38);
 }
 
 .hero-secondary {
@@ -162,7 +162,7 @@ h1 {
   left: 50%;
   width: 3px;
   content: "";
-  background: radial-gradient(circle, rgba(255, 198, 72, .44) 1px, transparent 1.5px) center top / 3px 8px repeat-y;
+  background: radial-gradient(circle, rgba(var(--home-primary-rgb), .44) 1px, transparent 1.5px) center top / 3px 8px repeat-y;
   transform: translateX(-50%);
   transition: opacity 180ms ease;
 }
@@ -174,8 +174,8 @@ h1 {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #ffc648;
-  box-shadow: 0 0 9px rgba(255, 198, 72, .7);
+  background: var(--home-primary);
+  box-shadow: 0 0 9px rgba(var(--home-primary-rgb), .7);
   transform: translateX(-50%);
   animation: scroll-runner-travel 1.7s cubic-bezier(.45, 0, .2, 1) infinite;
 }
@@ -184,8 +184,8 @@ h1 {
   width: 7px;
   height: 7px;
   margin-top: -4px;
-  border-right: 1px solid #ffc648;
-  border-bottom: 1px solid #ffc648;
+  border-right: 1px solid var(--home-primary);
+  border-bottom: 1px solid var(--home-primary);
   opacity: .72;
   transform: rotate(45deg);
   transition: opacity 180ms ease, transform 180ms ease;
@@ -208,7 +208,7 @@ h1 {
 }
 
 .scroll-cue:focus-visible {
-  outline: 1px solid #ffc648;
+  outline: 1px solid var(--home-primary);
   outline-offset: 6px;
 }
 

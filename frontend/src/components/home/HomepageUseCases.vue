@@ -36,12 +36,12 @@ const items = [
 .home-section { position: relative; padding: 96px 0; }
 .home-inner { width: min(1040px, calc(100% - 48px)); margin: 0 auto; }
 .section-heading { display: grid; grid-template-columns: 150px 1fr; gap: 38px; margin-bottom: 54px; }
-.section-index { margin: 7px 0 0; color: #ffc648; font-family: "Cascadia Code", monospace; font-size: 11px; font-weight: 700; }
+.section-index { margin: 7px 0 0; color: var(--home-primary); font-family: "Cascadia Code", monospace; font-size: 11px; font-weight: 700; }
 h2 { max-width: 680px; margin: 0; color: var(--home-text); font-size: 37px; line-height: 1.18; font-weight: 760; }
 .section-lead { max-width: 560px; margin: 16px 0 0; color: var(--home-muted); font-size: 15px; line-height: 1.75; }
 .use-case-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 52px; }
 .use-case-item { min-width: 0; }
-.use-case-item b { display: block; margin-bottom: 22px; color: #ffc648; font-family: "Cascadia Code", monospace; font-size: 25px; line-height: 1; }
+.use-case-item b { display: block; margin-bottom: 22px; color: var(--home-primary); font-family: "Cascadia Code", monospace; font-size: 25px; line-height: 1; }
 .use-case-item h3 { margin: 0; color: var(--home-text); font-size: 19px; line-height: 1.3; }
 .use-case-item p { margin: 10px 0 0; color: var(--home-muted); font-size: 14px; line-height: 1.65; }
 

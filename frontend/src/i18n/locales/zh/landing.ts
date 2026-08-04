@@ -64,7 +64,7 @@ export default {
         lead: '从主流模型开始，持续扩展。'
       },
       cta: {
-        eyebrow: 'BUILD WITH AIWELINK',
+        eyebrow: 'BUILD WITH AIwelink',
         title: '现在，连接你的下一次构建。',
         description: '进入平台，创建密钥并开始调用。',
         register: '点击开始'

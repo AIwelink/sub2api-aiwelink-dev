@@ -1,7 +1,7 @@
 <template>
   <header class="home-navigation">
     <nav class="navigation-inner" :aria-label="t('home.redesign.hero.eyebrow')">
-      <a href="#top" data-testid="home-wordmark" class="aiwelink-wordmark">AIWELINK</a>
+      <a href="#top" data-testid="home-wordmark" class="aiwelink-wordmark">AIwelink</a>
 
       <div class="navigation-actions">
         <div class="navigation-links">
@@ -86,7 +86,7 @@ const destination = computed(() => props.authenticated ? props.dashboardPath : '
 
 .aiwelink-wordmark {
   flex: 0 0 auto;
-  color: #ffc648;
+  color: var(--home-primary);
   font-family: "Bahnschrift", "Aptos Display", "Microsoft YaHei", sans-serif;
   font-size: 16px;
   font-weight: 800;
@@ -137,9 +137,9 @@ const destination = computed(() => props.authenticated ? props.dashboardPath : '
   justify-content: center;
   padding: 0 20px;
   border-radius: 5px;
-  color: #181005;
-  background: #ffc648;
-  box-shadow: 0 8px 26px rgba(255, 198, 72, .26);
+  color: var(--home-primary-contrast);
+  background: var(--home-primary);
+  box-shadow: 0 8px 26px rgba(var(--home-primary-rgb), .26);
   font-size: 14px;
   font-weight: 700;
   text-decoration: none;
@@ -148,7 +148,7 @@ const destination = computed(() => props.authenticated ? props.dashboardPath : '
 
 .navigation-command:hover {
   transform: translateY(-1px);
-  box-shadow: 0 11px 32px rgba(255, 198, 72, .34);
+  box-shadow: 0 11px 32px rgba(var(--home-primary-rgb), .34);
 }
 
 @media (max-width: 760px) {

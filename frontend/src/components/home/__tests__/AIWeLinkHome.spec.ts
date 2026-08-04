@@ -77,6 +77,14 @@ describe('AIWeLinkHome', () => {
     expect(wrapper.classes()).toContain('is-dark')
   })
 
+  it('defines blue light-mode accents while retaining gold in dark mode', () => {
+    const source = readFileSync(resolve('src/components/home/AIWeLinkHome.vue'), 'utf8')
+
+    expect(source).toContain('--home-primary: #2563eb')
+    expect(source).toContain('--home-primary-rgb: 37, 99, 235')
+    expect(source).toMatch(/\.aiwelink-home\.is-dark\s*{[^}]*--home-primary:\s*#ffc648/s)
+  })
+
   it('moves from thinking to editor composition, component reveal, and then the ready homepage', async () => {
     const wrapper = mountHome()
     await nextTick()

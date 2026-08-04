@@ -13,7 +13,7 @@ describe('HomepageIntro', () => {
   it('shows the fixed brand and accessible thinking status while preparing', () => {
     const wrapper = mount(HomepageIntro, { props: { stage: 'preparing' } })
 
-    expect(wrapper.get('[data-testid="intro-brand"]').attributes('aria-label')).toBe('AIWELINK API')
+    expect(wrapper.get('[data-testid="intro-brand"]').attributes('aria-label')).toBe('AIwelink API')
     expect(wrapper.get('[role="status"]').text()).toContain('AI 思考中')
     expect(wrapper.get('[data-testid="intro-spinner"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="intro-progress"]').attributes('aria-hidden')).toBe('true')

@@ -31,6 +31,26 @@ function maxConnectionAlpha() {
   return Math.max(...alphas)
 }
 
+function mockClusteredParticles(clusteredCount: number) {
+  let randomCall = 0
+  vi.spyOn(Math, 'random').mockImplementation(() => {
+    const particleIndex = Math.floor(randomCall / 6)
+    const fieldIndex = randomCall % 6
+    const distributedIndex = particleIndex - clusteredCount
+    randomCall += 1
+
+    if (particleIndex < clusteredCount) return [.5, .5, .2, .2, .5, .5][fieldIndex]
+    return [
+      .5,
+      .5,
+      .55 + (distributedIndex % 8) * .05,
+      .1 + Math.floor(distributedIndex / 8) * .16,
+      .5,
+      .5,
+    ][fieldIndex]
+  })
+}
+
 describe('ParticleNetwork', () => {
   beforeEach(() => {
     strokeStyles.length = 0
@@ -64,12 +84,13 @@ describe('ParticleNetwork', () => {
     vi.unstubAllGlobals()
   })
 
-  it('keeps light-theme connection lines visibly present without pointer boost', async () => {
+  it('uses the reference blue for visible light-theme connections', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     const wrapper = mount(ParticleNetwork, { props: { interactive: false } })
     await nextTick()
 
     expect(maxConnectionAlpha()).toBeGreaterThanOrEqual(.14)
+    expect(strokeStyles.some((style) => style.startsWith('rgba(59, 130, 246,'))).toBe(true)
     wrapper.unmount()
   })
 
@@ -80,22 +101,113 @@ describe('ParticleNetwork', () => {
     await nextTick()
 
     expect(maxConnectionAlpha()).toBeGreaterThanOrEqual(.22)
+    expect(strokeStyles.some((style) => style.startsWith('rgba(255, 198, 72,'))).toBe(true)
     wrapper.unmount()
   })
 
-  it('keeps the pointer connection boost restrained', async () => {
+  it('draws grab lines from nearby particles directly to the pointer', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     const wrapper = mount(ParticleNetwork)
     await nextTick()
-    const baseAlpha = maxConnectionAlpha()
     const animationFrame = vi.mocked(requestAnimationFrame).mock.calls[0]?.[0]
 
-    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 0, clientY: 0 }))
+    context.lineTo.mockClear()
     strokeStyles.length = 0
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: 50, clientY: 50 }))
     animationFrame?.(0)
 
-    expect(maxConnectionAlpha() - baseAlpha).toBeLessThanOrEqual(.12)
+    expect(context.lineTo).toHaveBeenCalledWith(50, 50)
+    expect(maxConnectionAlpha()).toBeGreaterThan(.2)
+    expect(maxConnectionAlpha()).toBeLessThanOrEqual(.42)
     wrapper.unmount()
+  })
+
+  it('scales desktop density by canvas area and uses reference-sized points', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(.9)
+    const wrapper = mount(ParticleNetwork, { props: { interactive: false } })
+    await nextTick()
+
+    const radii = context.arc.mock.calls.map(([, , radius]) => Number(radius))
+    expect(radii).toHaveLength(72)
+    expect(Math.max(...radii)).toBeGreaterThan(2)
+    expect(Math.max(...radii)).toBeLessThanOrEqual(2.5)
+    wrapper.unmount()
+  })
+
+  it('fully bursts a centrally collapsed particle cluster back outward', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(.5)
+    const wrapper = mount(ParticleNetwork, { props: { interactive: false } })
+    await nextTick()
+    const animationFrame = vi.mocked(requestAnimationFrame).mock.calls[0]?.[0]
+
+    try {
+      context.arc.mockClear()
+      animationFrame?.(0)
+      const firstFrameCenters = context.arc.mock.calls.map(([x, y]) => ({ x: Number(x), y: Number(y) }))
+      const firstFrameXSpread = Math.max(...firstFrameCenters.map(({ x }) => x)) - Math.min(...firstFrameCenters.map(({ x }) => x))
+      const firstFrameYSpread = Math.max(...firstFrameCenters.map(({ y }) => y)) - Math.min(...firstFrameCenters.map(({ y }) => y))
+
+      expect(Math.max(firstFrameXSpread, firstFrameYSpread)).toBeGreaterThan(15)
+
+      for (let frame = 0; frame < 40; frame += 1) {
+        context.arc.mockClear()
+        animationFrame?.(frame)
+      }
+
+      const centers = context.arc.mock.calls.map(([x, y]) => ({ x: Number(x), y: Number(y) }))
+      const xSpread = Math.max(...centers.map(({ x }) => x)) - Math.min(...centers.map(({ x }) => x))
+      const ySpread = Math.max(...centers.map(({ y }) => y)) - Math.min(...centers.map(({ y }) => y))
+
+      expect(Math.max(xSpread, ySpread)).toBeGreaterThan(120)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('bursts a dense particle cluster away from the viewport center', async () => {
+    const clusteredCount = 30
+    mockClusteredParticles(clusteredCount)
+
+    const wrapper = mount(ParticleNetwork, { props: { interactive: false } })
+    await nextTick()
+    const animationFrame = vi.mocked(requestAnimationFrame).mock.calls[0]?.[0]
+
+    try {
+      context.arc.mockClear()
+      animationFrame?.(0)
+
+      const clusteredCenters = context.arc.mock.calls.slice(0, clusteredCount)
+        .map(([x, y]) => ({ x: Number(x), y: Number(y) }))
+      const xSpread = Math.max(...clusteredCenters.map(({ x }) => x)) - Math.min(...clusteredCenters.map(({ x }) => x))
+      const ySpread = Math.max(...clusteredCenters.map(({ y }) => y)) - Math.min(...clusteredCenters.map(({ y }) => y))
+
+      expect(Math.max(xSpread, ySpread)).toBeGreaterThan(15)
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('does not burst when only one third of particles are clustered', async () => {
+    const clusteredCount = 24
+    mockClusteredParticles(clusteredCount)
+
+    const wrapper = mount(ParticleNetwork, { props: { interactive: false } })
+    await nextTick()
+    const animationFrame = vi.mocked(requestAnimationFrame).mock.calls[0]?.[0]
+
+    try {
+      context.arc.mockClear()
+      animationFrame?.(0)
+
+      const clusteredCenters = context.arc.mock.calls.slice(0, clusteredCount)
+        .map(([x, y]) => ({ x: Number(x), y: Number(y) }))
+      const xSpread = Math.max(...clusteredCenters.map(({ x }) => x)) - Math.min(...clusteredCenters.map(({ x }) => x))
+      const ySpread = Math.max(...clusteredCenters.map(({ y }) => y)) - Math.min(...clusteredCenters.map(({ y }) => y))
+
+      expect(Math.max(xSpread, ySpread)).toBeLessThan(1)
+    } finally {
+      wrapper.unmount()
+    }
   })
 
   it('sizes and paints the canvas before reporting readiness', async () => {

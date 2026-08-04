@@ -49,7 +49,7 @@ const { t } = useI18n()
 h2 { max-width: 680px; margin: 0; color: var(--home-text); font-size: 37px; line-height: 1.18; font-weight: 760; }
 .section-lead { max-width: 560px; margin: 16px 0 0; color: var(--home-muted); font-size: 15px; line-height: 1.75; }
 .pricing-layout { display: grid; grid-template-columns: 1.05fr .95fr; align-items: start; gap: 86px; }
-.pricing-primary strong { display: block; color: #ffc648; font-family: "Bahnschrift", sans-serif; font-size: 62px; line-height: 1; white-space: nowrap; }
+.pricing-primary strong { display: block; color: var(--home-primary); font-family: "Bahnschrift", sans-serif; font-size: 62px; line-height: 1; white-space: nowrap; }
 .pricing-primary p { margin: 18px 0 0; color: var(--home-muted); font-size: 15px; }
 .pricing-facts { display: grid; gap: 34px; }
 .pricing-facts article { display: grid; grid-template-columns: 68px 1fr; align-items: start; gap: 0; }

@@ -61,7 +61,7 @@ describe('AIWeLink homepage content', () => {
     const wrapper = mountContent()
     const text = wrapper.text()
 
-    expect(wrapper.get('h1').text().replace(/\s+/g, ' ').trim()).toBe('AIWELINK API')
+    expect(wrapper.get('h1').text().replace(/\s+/g, ' ').trim()).toBe('AIwelink API')
     expect(text).toContain('Codex')
     expect(text).toContain('Claude Code')
     expect(text).toContain('科研与深度学习')
@@ -106,7 +106,7 @@ describe('AIWeLink homepage content', () => {
       },
     })
 
-    expect(wrapper.get('[data-testid="home-wordmark"]').text()).toBe('AIWELINK')
+    expect(wrapper.get('[data-testid="home-wordmark"]').text()).toBe('AIwelink')
     await wrapper.get('[data-testid="home-theme-toggle"]').trigger('click')
     expect(wrapper.emitted('toggle-theme')).toHaveLength(1)
   })

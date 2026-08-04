@@ -163,6 +163,9 @@ onBeforeUnmount(() => {
   --home-faint: #8c949e;
   --home-soft: rgba(14, 18, 24, .055);
   --home-hover: rgba(14, 18, 24, .09);
+  --home-primary: #2563eb;
+  --home-primary-rgb: 37, 99, 235;
+  --home-primary-contrast: #fff;
 
   position: relative;
   min-height: 100vh;
@@ -181,6 +184,9 @@ onBeforeUnmount(() => {
   --home-faint: #6f7681;
   --home-soft: rgba(255, 255, 255, .055);
   --home-hover: rgba(255, 255, 255, .09);
+  --home-primary: #ffc648;
+  --home-primary-rgb: 255, 198, 72;
+  --home-primary-contrast: #181005;
 }
 
 .homepage-content {

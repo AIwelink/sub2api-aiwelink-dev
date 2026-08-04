@@ -1,8 +1,8 @@
 <template>
   <div class="homepage-intro" :data-stage="stage">
     <div v-if="stage === 'preparing'" class="intro-center" role="status" aria-live="polite">
-      <h1 data-testid="intro-brand" class="intro-brand" aria-label="AIWELINK API">
-        <span class="intro-brand-word">AIWELINK</span>
+      <h1 data-testid="intro-brand" class="intro-brand" aria-label="AIwelink API">
+        <span class="intro-brand-word">AIwelink</span>
         {{ ' ' }}
         <span class="intro-brand-api">API</span>
       </h1>
@@ -29,7 +29,7 @@
     >
       <div class="editor-heading">
         <span class="editor-status" />
-        <span>AIWELINK / homepage.vue</span>
+        <span>AIwelink / homepage.vue</span>
       </div>
       <div class="editor-lines">
         <code

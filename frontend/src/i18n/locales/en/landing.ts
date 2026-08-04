@@ -64,7 +64,7 @@ export default {
         lead: 'Starting with leading models and continuously expanding.'
       },
       cta: {
-        eyebrow: 'BUILD WITH AIWELINK',
+        eyebrow: 'BUILD WITH AIwelink',
         title: 'Connect your next build.',
         description: 'Enter the platform, create a key, and make your first call.',
         register: 'Start Now'
