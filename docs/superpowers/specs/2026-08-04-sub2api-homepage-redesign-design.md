@@ -143,10 +143,10 @@ Use module-lifetime state rather than `localStorage` or `sessionStorage`; storag
 
 ### State model
 
-The sequence has three explicit states:
+The sequence has four explicit states:
 
 ```text
-preparing -> composing -> ready
+preparing -> composing -> revealing -> ready
 ```
 
 The state machine owns the overlay, page visibility, scroll lock, and transition cleanup. It does not control business data or authentication.
@@ -183,11 +183,21 @@ Lines appear in order:
 <Models />
 ```
 
-Each generated line triggers the corresponding homepage layer to resolve behind the overlay. The visible first viewport builds from navigation to hero to particle network; below-fold sections enter their ready state without forcing the page to scroll.
+The overlay remains fully opaque black for this entire phase. The generated list is the only visible content; the homepage must not show through while the component names are being written.
 
 The effect uses short opacity, mask, and vertical-position transitions. It must not simulate typing every character of large source files or make the visitor wait through verbose logs.
 
-### Phase 3: Ready
+### Phase 3: Revealing
+
+Target duration: approximately `1.8s`.
+
+- Remove the editor output and fade the full black intro away without a directional mask or wipe.
+- Stagger page layers in document order: navigation, particle network and hero, use cases, pricing, models, then final CTA.
+- Each layer resolves through opacity, a short upward settle, and restrained blur reduction over approximately `760ms`; components appear progressively instead of being exposed by a moving curtain.
+- Use a restrained `cubic-bezier(0.16, 1, 0.3, 1)` easing so the motion is directional without feeling like a slideshow.
+- Keep scrolling locked and the particle network noninteractive until the reveal completes.
+
+### Phase 4: Ready
 
 - Fade the editor output and black overlay away.
 - Release scroll lock.
@@ -230,7 +240,7 @@ These components consume existing app-store settings and authentication state th
 Automated coverage should verify:
 
 1. Custom-content and compact-home precedence remains unchanged.
-2. The intro state order is `preparing -> composing -> ready`.
+2. The intro state order is `preparing -> composing -> revealing -> ready`.
 3. The minimum preparing duration and readiness gate both apply.
 4. A second `HomeView` mount in the same document skips the intro.
 5. A fresh document load starts the intro again.
