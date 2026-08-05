@@ -20,6 +20,7 @@ export default {
   // Version Badge
   version: {
     currentVersion: '当前版本',
+    basedOnSub2API: '基于 Sub2API v{version}',
     latestVersion: '最新版本',
     upToDate: '已是最新版本',
     updateAvailable: '有新版本可用！',
