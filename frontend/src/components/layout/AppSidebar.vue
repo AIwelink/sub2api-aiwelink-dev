@@ -25,7 +25,7 @@
           {{ siteName }}
         </router-link>
         <!-- Version Badge -->
-        <VersionBadge :version="siteVersion" />
+        <VersionBadge :version="siteVersion" :upstream-version="siteUpstreamVersion" />
       </div>
     </div>
 
@@ -259,6 +259,7 @@ const expandedGroups = ref<Set<string>>(new Set())
 const siteName = computed(() => appStore.siteName)
 const siteLogo = computed(() => sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
 const siteVersion = computed(() => appStore.siteVersion)
+const siteUpstreamVersion = computed(() => appStore.siteUpstreamVersion)
 const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
 
 // SVG Icon Components

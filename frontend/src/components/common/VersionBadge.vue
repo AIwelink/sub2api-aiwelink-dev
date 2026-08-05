@@ -12,7 +12,7 @@
         ]"
         :title="hasUpdate ? t('version.updateAvailable') : t('version.upToDate')"
       >
-        <span v-if="currentVersion" class="font-medium">v{{ currentVersion }}</span>
+        <span v-if="currentVersion" class="font-medium">AIWeLink v{{ currentVersion }}</span>
         <span
           v-else
           class="h-3 w-12 animate-pulse rounded bg-gray-200 font-medium dark:bg-dark-600"
@@ -84,7 +84,7 @@
                   <span
                     v-if="currentVersion"
                     class="text-2xl font-bold text-gray-900 dark:text-white"
-                    >v{{ currentVersion }}</span
+                    >AIWeLink v{{ currentVersion }}</span
                   >
                   <span v-else class="text-2xl font-bold text-gray-400 dark:text-dark-500">--</span>
                   <!-- Show check mark when up to date -->
@@ -111,6 +111,12 @@
                       ? t('version.latestVersion') + ': v' + latestVersion
                       : t('version.upToDate')
                   }}
+                </p>
+                <p
+                  v-if="upstreamVersion"
+                  class="mt-1 text-xs text-gray-500 dark:text-dark-400"
+                >
+                  {{ t('version.basedOnSub2API', { version: upstreamVersion }) }}
                 </p>
               </div>
 
@@ -632,7 +638,7 @@
 
     <!-- Non-admin: Simple static version text -->
     <span v-else-if="version" class="text-xs text-gray-500 dark:text-dark-400">
-      v{{ version }}
+      AIWeLink v{{ version }}
     </span>
   </div>
 </template>
@@ -651,14 +657,14 @@ import {
 import { useClipboard } from '@/composables/useClipboard'
 import Icon from '@/components/icons/Icon.vue'
 
-const GITHUB_REPO = 'Wei-Shaw/sub2api'
-// Docker Hub image published by CI (tags carry no "v" prefix, e.g. weishaw/sub2api:0.1.146)
-const DOCKER_IMAGE = 'weishaw/sub2api'
+const GITHUB_REPO = 'AIwelink/sub2api-aiwelink-dev'
+const DOCKER_IMAGE = 'docker.aiwelink.cc/sub2api-aiwelink-dev'
 
 const { t } = useI18n()
 
 const props = defineProps<{
   version?: string
+  upstreamVersion?: string
 }>()
 
 const authStore = useAuthStore()
@@ -672,6 +678,9 @@ const dropdownRef = ref<HTMLElement | null>(null)
 // Use store's cached version state
 const loading = computed(() => appStore.versionLoading)
 const currentVersion = computed(() => appStore.currentVersion || props.version || '')
+const upstreamVersion = computed(
+  () => appStore.upstreamVersion || props.upstreamVersion || ''
+)
 const latestVersion = computed(() => appStore.latestVersion)
 const hasUpdate = computed(() => appStore.hasUpdate)
 const releaseInfo = computed(() => appStore.releaseInfo)
