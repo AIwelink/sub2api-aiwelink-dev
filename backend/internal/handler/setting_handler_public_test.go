@@ -61,7 +61,7 @@ func TestSettingHandler_GetPublicSettings_ExposesForceEmailOnThirdPartySignup(t 
 			service.SettingKeyForceEmailOnThirdPartySignup: "true",
 		},
 	}
-	h := NewSettingHandler(service.NewSettingService(repo, &config.Config{}), "test-version")
+	h := NewSettingHandler(service.NewSettingService(repo, &config.Config{}), "0.1.170-1", "0.1.170")
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -82,6 +82,31 @@ func TestSettingHandler_GetPublicSettings_ExposesForceEmailOnThirdPartySignup(t 
 	require.True(t, resp.Data.ForceEmailOnThirdPartySignup)
 }
 
+func TestSettingHandler_GetPublicSettings_ExposesVersionMetadata(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := NewSettingHandler(
+		service.NewSettingService(&settingHandlerPublicRepoStub{}, &config.Config{}),
+		"0.1.170-1",
+		"0.1.170",
+	)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/settings/public", nil)
+
+	h.GetPublicSettings(c)
+
+	var resp struct {
+		Data struct {
+			Version         string `json:"version"`
+			UpstreamVersion string `json:"upstream_version"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
+	require.Equal(t, "0.1.170-1", resp.Data.Version)
+	require.Equal(t, "0.1.170", resp.Data.UpstreamVersion)
+}
+
 func TestSettingHandler_GetPublicSettings_ExposesWeChatOAuthModeCapabilities(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := NewSettingHandler(service.NewSettingService(&settingHandlerPublicRepoStub{
@@ -96,7 +121,7 @@ func TestSettingHandler_GetPublicSettings_ExposesWeChatOAuthModeCapabilities(t *
 			service.SettingKeyWeChatConnectRedirectURL:         "https://api.example.com/api/v1/auth/oauth/wechat/callback",
 			service.SettingKeyWeChatConnectFrontendRedirectURL: "/auth/wechat/callback",
 		},
-	}, &config.Config{}), "test-version")
+	}, &config.Config{}), "0.1.170-1", "0.1.170")
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
