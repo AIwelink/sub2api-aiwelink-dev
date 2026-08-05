@@ -209,12 +209,12 @@
           :class="[
             'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all',
             status === 'connecting' || !selectedModelId
-              ? 'cursor-not-allowed bg-primary-400 text-on-primary'
+              ? 'cursor-not-allowed bg-primary-400 text-white'
               : status === 'success'
                 ? 'bg-green-500 text-white hover:bg-green-600'
                 : status === 'error'
                   ? 'bg-orange-500 text-white hover:bg-orange-600'
-                  : 'bg-primary-500 text-on-primary hover:bg-primary-600'
+                  : 'bg-primary-500 text-white hover:bg-primary-600'
           ]"
         >
           <Icon

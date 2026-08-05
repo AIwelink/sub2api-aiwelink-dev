@@ -363,7 +363,6 @@ import Select from '@/components/common/Select.vue'
 import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'
 import TokenUsageTrend from '@/components/charts/TokenUsageTrend.vue'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
-import { useThemePalette } from '@/composables/useThemePalette'
 
 import {
   Chart as ChartJS,
@@ -391,7 +390,6 @@ ChartJS.register(
 const appStore = useAppStore()
 const router = useRouter()
 const { canUseBatchImage, refreshBatchImageAccess } = useBatchImageAccess()
-const themePalette = useThemePalette()
 const stats = ref<DashboardStats | null>(null)
 const loading = ref(false)
 const chartsLoading = ref(false)
@@ -438,6 +436,17 @@ const granularityOptions = computed(() => [
   { value: 'hour', label: t('admin.dashboard.hour') }
 ])
 
+// Dark mode detection
+const isDarkMode = computed(() => {
+  return document.documentElement.classList.contains('dark')
+})
+
+// Chart colors
+const chartColors = computed(() => ({
+  text: isDarkMode.value ? '#e5e7eb' : '#374151',
+  grid: isDarkMode.value ? '#374151' : '#e5e7eb'
+}))
+
 // Line chart options (for user trend chart)
 const lineOptions = computed(() => ({
   responsive: true,
@@ -450,7 +459,7 @@ const lineOptions = computed(() => ({
     legend: {
       position: 'top' as const,
       labels: {
-        color: themePalette.value.text,
+        color: chartColors.value.text,
         usePointStyle: true,
         pointStyle: 'circle',
         padding: 15,
@@ -460,11 +469,6 @@ const lineOptions = computed(() => ({
       }
     },
     tooltip: {
-      backgroundColor: themePalette.value.tooltipSurface,
-      titleColor: themePalette.value.text,
-      bodyColor: themePalette.value.text,
-      borderColor: themePalette.value.grid,
-      borderWidth: 1,
       itemSort: (a: any, b: any) => {
         const aValue = typeof a?.raw === 'number' ? a.raw : Number(a?.parsed?.y ?? 0)
         const bValue = typeof b?.raw === 'number' ? b.raw : Number(b?.parsed?.y ?? 0)
@@ -480,10 +484,10 @@ const lineOptions = computed(() => ({
   scales: {
     x: {
       grid: {
-        color: themePalette.value.grid
+        color: chartColors.value.grid
       },
       ticks: {
-        color: themePalette.value.text,
+        color: chartColors.value.text,
         font: {
           size: 10
         }
@@ -491,10 +495,10 @@ const lineOptions = computed(() => ({
     },
     y: {
       grid: {
-        color: themePalette.value.grid
+        color: chartColors.value.grid
       },
       ticks: {
-        color: themePalette.value.text,
+        color: chartColors.value.text,
         font: {
           size: 10
         },
@@ -536,13 +540,26 @@ const userTrendChartData = computed(() => {
   })
 
   const sortedDates = Array.from(allDates).sort()
-  const colors = themePalette.value.chartSeries
+  const colors = [
+    '#3b82f6',
+    '#10b981',
+    '#f59e0b',
+    '#ef4444',
+    '#8b5cf6',
+    '#ec4899',
+    '#14b8a6',
+    '#f97316',
+    '#6366f1',
+    '#84cc16',
+    '#06b6d4',
+    '#a855f7'
+  ]
 
   const datasets = Array.from(userGroups.values()).map((group, idx) => ({
     label: group.name,
     data: sortedDates.map((date) => group.data.get(date) || 0),
     borderColor: colors[idx % colors.length],
-    backgroundColor: idx === 0 ? themePalette.value.primaryAlpha : colors[idx % colors.length],
+    backgroundColor: `${colors[idx % colors.length]}20`,
     fill: false,
     tension: 0.3
   }))

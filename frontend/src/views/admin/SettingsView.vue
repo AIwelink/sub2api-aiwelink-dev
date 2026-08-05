@@ -1631,9 +1631,6 @@
                           )
                     }}
                   </p>
-                  <p v-if="!form.passkey_configured" class="mt-2">
-                    {{ t("admin.settings.security.passkeyDeploymentHint") }}
-                  </p>
                 </div>
               </div>
 
@@ -5977,19 +5974,6 @@
                 </p>
               </div>
 
-              <!-- Compact Home Page -->
-              <div class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700">
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{
-                    t("admin.settings.site.compactHome")
-                  }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.site.compactHomeHint") }}
-                  </p>
-                </div>
-                <Toggle v-model="form.compact_home_enabled" data-testid="compact-home-toggle" />
-              </div>
-
               <!-- Hide CCS Import Button -->
               <div
                 class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
@@ -7479,7 +7463,7 @@
                       :class="[
                         'rounded-lg border px-3 py-1.5 text-sm font-medium transition-all',
                         isPaymentTypeEnabled(pt.value)
-                          ? 'border-primary-500 bg-primary-500 text-on-primary shadow-sm'
+                          ? 'border-primary-500 bg-primary-500 text-white shadow-sm'
                           : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-300 dark:hover:border-dark-500',
                       ]"
                     >
@@ -8850,7 +8834,6 @@ const form = reactive<SettingsForm>({
   contact_info: "",
   doc_url: "",
   home_content: "",
-  compact_home_enabled: false,
   backend_mode_enabled: false,
   hide_ccs_import_button: false,
   payment_enabled: false,
@@ -10375,7 +10358,6 @@ async function saveSettings() {
       contact_info: form.contact_info,
       doc_url: form.doc_url,
       home_content: form.home_content,
-      compact_home_enabled: form.compact_home_enabled,
       backend_mode_enabled: form.backend_mode_enabled,
       hide_ccs_import_button: form.hide_ccs_import_button,
       table_default_page_size: form.table_default_page_size,
@@ -12124,7 +12106,6 @@ watch(
 .settings-tab-active {
   @apply border-primary-200/80 bg-white text-primary-700 shadow-sm dark:border-primary-400/30 dark:bg-dark-700/95 dark:text-primary-200;
   box-shadow:
-    0 8px 20px rgb(var(--color-primary-500) / 0.14),
     0 8px 18px rgb(15 23 42 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.92) inset;
 }
@@ -12141,11 +12122,7 @@ watch(
   height: 2px;
   border-radius: 9999px;
   content: "";
-  background: linear-gradient(
-    90deg,
-    rgb(var(--color-primary-500)),
-    rgb(var(--color-accent-500))
-  );
+  background: linear-gradient(90deg, #14b8a6, #0ea5e9);
 }
 
 .settings-tab-icon {
@@ -12184,7 +12161,6 @@ watch(
 
 .dark .settings-tab-active {
   box-shadow:
-    0 10px 24px rgb(var(--color-primary-500) / 0.14),
     0 12px 26px rgb(0 0 0 / 0.22),
     0 1px 0 rgb(255 255 255 / 0.08) inset;
 }
