@@ -18,13 +18,15 @@ type SettingHandler struct {
 	settingService           *service.SettingService
 	notificationEmailService *service.NotificationEmailService
 	version                  string
+	upstreamVersion          string
 }
 
 // NewSettingHandler 创建公开设置处理器
-func NewSettingHandler(settingService *service.SettingService, version string) *SettingHandler {
+func NewSettingHandler(settingService *service.SettingService, version, upstreamVersion string) *SettingHandler {
 	return &SettingHandler{
-		settingService: settingService,
-		version:        version,
+		settingService:  settingService,
+		version:         version,
+		upstreamVersion: upstreamVersion,
 	}
 }
 
@@ -94,6 +96,7 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		BackendModeEnabled:               settings.BackendModeEnabled,
 		PaymentEnabled:                   settings.PaymentEnabled,
 		Version:                          h.version,
+		UpstreamVersion:                  h.upstreamVersion,
 		ServerTimezone:                   timezone.Name(),
 		ServerUTCOffset:                  timezone.UTCOffset(),
 		BalanceLowNotifyEnabled:          settings.BalanceLowNotifyEnabled,

@@ -151,7 +151,7 @@ func ProvideSystemHandler(updateService *service.UpdateService, lockService *ser
 
 // ProvideSettingHandler creates SettingHandler with version from BuildInfo
 func ProvideSettingHandler(settingService *service.SettingService, buildInfo BuildInfo, notificationEmailService *service.NotificationEmailService) *SettingHandler {
-	h := NewSettingHandler(settingService, buildInfo.Version)
+	h := NewSettingHandler(settingService, buildInfo.Version, buildInfo.UpstreamVersion)
 	h.SetNotificationEmailService(notificationEmailService)
 	return h
 }

@@ -1,10 +1,14 @@
 .PHONY: build generate test test-unit test-integration test-e2e
 
 VERSION ?= $(shell ./scripts/resolve-version.sh)
-LDFLAGS ?= -s -w -X main.Version=$(VERSION)
+UPSTREAM_VERSION ?= $(shell tr -d '\r\n' < ./cmd/server/UPSTREAM_VERSION)
+LDFLAGS ?= -s -w -X main.Version=$(VERSION) -X main.UpstreamVersion=$(UPSTREAM_VERSION)
 
-build:
+build: validate-version
 	CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -trimpath -o bin/server ./cmd/server
+
+validate-version:
+	./scripts/validate-version.sh
 
 generate:
 	go generate ./ent
