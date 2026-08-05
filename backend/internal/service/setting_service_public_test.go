@@ -67,6 +67,18 @@ func TestSettingService_GetPublicSettings_ExposesRegistrationEmailSuffixWhitelis
 	require.Equal(t, []string{"@example.com", "@foo.bar", "*.edu.cn"}, settings.RegistrationEmailSuffixWhitelist)
 }
 
+func TestSettingService_GetPublicSettingsForInjection_ExposesVersionMetadata(t *testing.T) {
+	svc := NewSettingService(&settingPublicRepoStub{values: map[string]string{}}, &config.Config{})
+	svc.SetVersionMetadata("0.1.170-1", "0.1.170")
+
+	payloadValue, err := svc.GetPublicSettingsForInjection(context.Background())
+	require.NoError(t, err)
+	payload, ok := payloadValue.(*PublicSettingsInjectionPayload)
+	require.True(t, ok)
+	require.Equal(t, "0.1.170-1", payload.Version)
+	require.Equal(t, "0.1.170", payload.UpstreamVersion)
+}
+
 func TestSettingService_GetPublicSettings_ExposesTablePreferences(t *testing.T) {
 	repo := &settingPublicRepoStub{
 		values: map[string]string{

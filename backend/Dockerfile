@@ -16,7 +16,8 @@ COPY . .
 
 # 构建应用
 RUN VERSION_VALUE="$(./scripts/resolve-version.sh)" && \
-    go build -ldflags="-s -w -X main.Version=${VERSION_VALUE}" -o main ./cmd/server/
+    UPSTREAM_VERSION_VALUE="$(tr -d '\r\n' < ./cmd/server/UPSTREAM_VERSION)" && \
+    go build -ldflags="-s -w -X main.Version=${VERSION_VALUE} -X main.UpstreamVersion=${UPSTREAM_VERSION_VALUE}" -o main ./cmd/server/
 
 # 暴露端口
 EXPOSE 8080
