@@ -703,6 +703,8 @@ var ProviderSet = wire.NewSet(
 	NewBatchImageDownloadService,
 	ProvideBatchImageCleanupService,
 	ProvideBatchImageWorkerRuntime,
+	ProvideGrowthRegistrationRuntime,
+	wire.Bind(new(GrowthRegistrationRecorder), new(*GrowthRegistrationRuntime)),
 	wire.Bind(new(AccountRuntimeBlocker), new(*OpenAIGatewayService)),
 	NewOAuthService,
 	ProvideOpenAIOAuthService,

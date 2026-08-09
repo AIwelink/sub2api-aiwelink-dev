@@ -323,11 +323,16 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	proxyExpiryService := service.ProvideProxyExpiryService(proxyRepository)
 	subscriptionExpiryService := service.ProvideSubscriptionExpiryService(userSubscriptionRepository, settingRepository, notificationEmailService, leaderLockCache, db)
 	batchImageWorkerRuntime := service.ProvideBatchImageWorkerRuntime(batchImageRepository, accountRepository, batchImageQueue, usageBillingRepository, usageLogRepository, batchImageModelPricingResolver, apiKeyAuthCacheInvalidator, configConfig)
+	growthRegistrationOutboxRepository := repository.NewGrowthRegistrationOutboxRepository(db)
+	growthRegistrationRuntime, err := service.ProvideGrowthRegistrationRuntime(configConfig, growthRegistrationOutboxRepository)
+	if err != nil {
+		return nil, err
+	}
 	scheduledTestRunnerService := service.ProvideScheduledTestRunnerService(scheduledTestPlanRepository, scheduledTestService, accountTestService, rateLimitService, configConfig)
 	paymentOrderExpiryService := service.ProvidePaymentOrderExpiryService(paymentService, leaderLockCache, db)
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService)
 	userPlatformQuotaUsageFlusher := service.ProvideUserPlatformQuotaUsageFlusher(configConfig, billingCache, serviceUserPlatformQuotaRepository, timingWheelService)
-	v := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, opsService, opsIngressRejectAggregator, apiKeyService, authCacheInvalidationWorker, schedulerSnapshotService, tokenRefreshService, accountExpiryService, proxyExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, batchImageCleanupService, batchImageWorkerRuntime, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, channelMonitorRunner, userPlatformQuotaUsageFlusher, upstreamBillingProbeService, ollamaCloudUsageService, auditLogService, promptService)
+	v := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, opsService, opsIngressRejectAggregator, apiKeyService, authCacheInvalidationWorker, schedulerSnapshotService, tokenRefreshService, accountExpiryService, proxyExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, batchImageCleanupService, batchImageWorkerRuntime, growthRegistrationRuntime, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, channelMonitorRunner, userPlatformQuotaUsageFlusher, upstreamBillingProbeService, ollamaCloudUsageService, auditLogService, promptService)
 	application := &Application{
 		Server:      httpServer,
 		PromptAudit: promptService,
@@ -377,6 +382,7 @@ func provideCleanup(
 	idempotencyCleanup *service.IdempotencyCleanupService,
 	batchImageCleanup *service.BatchImageCleanupService,
 	batchImageWorker *service.BatchImageWorkerRuntime,
+	growthRegistrationRuntime *service.GrowthRegistrationRuntime,
 	pricing *service.PricingService,
 	emailQueue *service.EmailQueueService,
 	billingCache *service.BillingCacheService,
@@ -507,6 +513,12 @@ func provideCleanup(
 			{"BatchImageWorkerRuntime", func() error {
 				if batchImageWorker != nil {
 					batchImageWorker.Stop()
+				}
+				return nil
+			}},
+			{"GrowthRegistrationRuntime", func() error {
+				if growthRegistrationRuntime != nil {
+					growthRegistrationRuntime.Stop()
 				}
 				return nil
 			}},
