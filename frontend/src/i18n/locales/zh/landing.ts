@@ -14,6 +14,62 @@ export default {
     login: '登录',
     getStarted: '立即开始',
     goToDashboard: '进入控制台',
+    redesign: {
+      intro: {
+        thinking: 'AI 思考中'
+      },
+      nav: {
+        useCases: '使用场景',
+        pricing: '价格',
+        models: '模型覆盖',
+        register: '注册'
+      },
+      hero: {
+        eyebrow: 'ONE ENDPOINT · EVERY MODEL',
+        description: '一个 API，连接所有主流模型。为开发者和小团队提供稳定、统一、透明的模型接入体验。',
+        primary: '点击开始',
+        secondary: '了解接入方式'
+      },
+      useCases: {
+        index: '01 / USE CASES',
+        title: '从 Coding 到科研与 Agent，接入方式保持一致。',
+        lead: '按真实使用场景组织能力，让模型成为工作流的一部分。',
+        coding: {
+          title: 'Coding',
+          description: 'Codex · Claude Code'
+        },
+        research: {
+          title: '科研与深度学习',
+          description: '研究、推理与模型实验'
+        },
+        agent: {
+          title: 'Agent 开发接入',
+          description: '统一模型入口与工具调用'
+        }
+      },
+      pricing: {
+        index: '02 / PRICING',
+        title: '更低成本，计费保持透明。',
+        lead: '充值到账平台余额，不同模型按对应倍率扣减。',
+        equation: '¥1 = $10',
+        equationLabel: '人民币与平台余额',
+        multiplierLabel: '倍率低至',
+        multiplier: '¥0.1–0.2 / $1',
+        billingLabel: '按模型倍率扣减',
+        billingDescription: '实际消耗以账单为准。'
+      },
+      models: {
+        index: '03 / MODELS',
+        title: '多种模型，一个统一入口。',
+        lead: '从主流模型开始，持续扩展。'
+      },
+      cta: {
+        eyebrow: 'BUILD WITH AIwelink',
+        title: '现在，连接你的下一次构建。',
+        description: '进入平台，创建密钥并开始调用。',
+        register: '点击开始'
+      }
+    },
     // 新增：面向用户的价值主张
     heroSubtitle: '一个密钥，畅用多个 AI 模型',
     heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini 等主流 AI 服务',
