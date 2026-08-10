@@ -250,7 +250,7 @@ git commit -m "docs: add AIWeLink growth deployment example"
 - Create: `deploy/AIWELINK_GROWTH_REGISTRATION_CN.md`
 - Modify: `deploy/README.md`
 
-- [ ] **Step 1: Write the operations guide**
+- [x] **Step 1: Write the operations guide**
 
 Create a guide with these exact sections and outcomes:
 
@@ -284,7 +284,7 @@ Show changing only the immutable image tag, running `pull` and `up -d`, and reve
 
 Use fully executable shell commands and the actual file/container names. Do not include a real credential, database address, password, or encryption key.
 
-- [ ] **Step 2: Link the AIWeLink artifacts from the deploy README**
+- [x] **Step 2: Link the AIWeLink artifacts from the deploy README**
 
 Add these rows to the deployment file table:
 
@@ -294,7 +294,7 @@ Add these rows to the deployment file table:
 | `AIWELINK_GROWTH_REGISTRATION_CN.md` | AIWeLink 推广注册绑定部署与排障说明 |
 ```
 
-- [ ] **Step 3: Check documentation and commit**
+- [x] **Step 3: Check documentation and commit**
 
 Run:
 
