@@ -80,6 +80,7 @@ func TestProvideGrowthRegistrationRuntimeDisabledIsNoOpWithoutDependencies(t *te
 	require.NotNil(t, runtime)
 	require.Nil(t, runtime.recorder)
 	require.Nil(t, runtime.worker)
+	//nolint:staticcheck // Exercises the disabled runtime's defensive nil-context fallback.
 	require.NoError(t, runtime.RecordSuccessfulRegistration(nil, nil))
 	require.NotPanics(t, runtime.Stop)
 	require.NotPanics(t, runtime.Stop)
@@ -87,6 +88,7 @@ func TestProvideGrowthRegistrationRuntimeDisabledIsNoOpWithoutDependencies(t *te
 
 func TestGrowthRegistrationRuntimeNilReceiverIsNoOp(t *testing.T) {
 	var runtime *GrowthRegistrationRuntime
+	//nolint:staticcheck // Exercises the nil receiver's defensive nil-context fallback.
 	require.NoError(t, runtime.RecordSuccessfulRegistration(nil, nil))
 	require.NotPanics(t, runtime.Stop)
 }
