@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useAppStore } from '@/stores/app'
 import { getPublicSettings } from '@/api/auth'
+import { checkUpdates } from '@/api/admin/system'
 import type { PublicSettings } from '@/types'
 
 function createDeferred<T>() {
@@ -77,6 +78,7 @@ describe('useAppStore', () => {
     vi.useFakeTimers()
     localStorage.clear()
     vi.mocked(getPublicSettings).mockReset()
+    vi.mocked(checkUpdates).mockReset()
     // 清除 window.__APP_CONFIG__
     delete (window as any).__APP_CONFIG__
   })
@@ -299,6 +301,27 @@ describe('useAppStore', () => {
       expect(store.loading).toBe(false)
       expect(store.toasts).toHaveLength(1)
       expect(store.toasts[0].type).toBe('error')
+    })
+  })
+
+  // --- reset ---
+
+  describe('version metadata', () => {
+    it('stores the AIWeLink version and Sub2API baseline', async () => {
+      vi.mocked(checkUpdates).mockResolvedValue({
+        current_version: '0.1.170-2.4',
+        upstream_version: '0.1.170',
+        latest_version: '0.1.171-1',
+        has_update: true,
+        cached: false,
+        build_type: 'release',
+      })
+      const store = useAppStore()
+
+      await store.fetchVersion(true)
+
+      expect(store.currentVersion).toBe('0.1.170-2.4')
+      expect(store.upstreamVersion).toBe('0.1.170')
     })
   })
 
