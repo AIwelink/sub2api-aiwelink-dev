@@ -110,7 +110,7 @@
 - Create: `docs/superpowers/plans/2026-08-09-growth-registration-binding.md`
 
 - [x] Document the data flow, stable payload, outbox transitions, failure semantics, security boundaries, lifecycle, configuration, acceptance criteria, and explicit non-goals.
-- [ ] Run the full verification set:
+- [x] Run the full verification set:
 
 ```powershell
 $env:GOPROXY='https://goproxy.cn,direct'
@@ -121,8 +121,8 @@ go vet ./...
 git diff --check
 ```
 
-- [ ] Validate all four Compose files with `docker compose -f <file> config` when Docker is available.
-- [ ] Review the complete diff for scope and commit Task 5, deployment templates, and documentation on `codex/growth-registration-binding`.
+- [x] Validate all four Compose files with `docker compose -f <file> config` when Docker is available.
+- [x] Review the complete diff for scope and commit Task 5, deployment templates, and documentation on `codex/growth-registration-binding`.
 
 ## Scope Guard
 
