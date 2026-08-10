@@ -339,7 +339,7 @@ go test ./internal/config ./internal/server/middleware ./internal/repository ./i
 
 Expected: all commands exit `0` and every package reports `ok`.
 
-- [ ] **Step 2: Run repository hygiene checks**
+- [x] **Step 2: Run repository hygiene checks**
 
 ```bash
 git diff origin/aiwelink-dev...HEAD --check
