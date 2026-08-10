@@ -186,7 +186,8 @@ func TestGrowthRegistrationRecorderReturnsSourceIDGenerationError(t *testing.T) 
 	recorder, err := NewGrowthRegistrationRecorder(repository, cipher, "aiwelink")
 	require.NoError(t, err)
 
-	implementation := recorder.(*growthRegistrationRecorder)
+	implementation, ok := recorder.(*growthRegistrationRecorder)
+	require.True(t, ok)
 	implementation.newSourceRegistrationID = func() (uuid.UUID, error) {
 		return uuid.Nil, errors.New("random source unavailable")
 	}
