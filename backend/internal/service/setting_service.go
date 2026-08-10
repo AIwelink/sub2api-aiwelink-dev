@@ -52,6 +52,7 @@ type SettingService struct {
 	cfg                         *config.Config
 	onUpdate                    func() // Callback when settings are updated (for cache invalidation)
 	version                     string // Application version
+	upstreamVersion             string // Official Sub2API baseline
 	webSearchManagerBuilder     WebSearchManagerBuilder
 	antigravityUAVersionCache   atomic.Value // *cachedAntigravityUserAgentVersion
 	antigravityUAVersionSF      singleflight.Group
@@ -303,6 +304,12 @@ func (s *SettingService) SetOnUpdateCallback(callback func()) {
 // SetVersion sets the application version for injection into public settings
 func (s *SettingService) SetVersion(version string) {
 	s.version = version
+}
+
+// SetVersionMetadata sets the AIWeLink version and its Sub2API baseline for public injection.
+func (s *SettingService) SetVersionMetadata(version, upstreamVersion string) {
+	s.version = version
+	s.upstreamVersion = upstreamVersion
 }
 
 // getStringOrDefault 获取字符串值或默认值
