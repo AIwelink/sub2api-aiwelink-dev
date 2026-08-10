@@ -95,12 +95,14 @@ describe('AIWeLink homepage content', () => {
     expect(wrapper.find('.card').exists()).toBe(false)
   })
 
-  it('uses registration for guests and the supplied dashboard for authenticated users', () => {
-    const guestLink = mountContent().get('[data-testid="hero-primary"]')
-    const memberLink = mountContent(true, '/admin/dashboard').get('[data-testid="hero-primary"]')
+  it('uses login for guest start actions and the supplied dashboard for authenticated users', () => {
+    const guestContent = mountContent()
+    const memberContent = mountContent(true, '/admin/dashboard')
 
-    expect(guestLink.findComponent(RouterLinkStub).props('to')).toBe('/register')
-    expect(memberLink.findComponent(RouterLinkStub).props('to')).toBe('/admin/dashboard')
+    expect(guestContent.get('[data-testid="hero-primary"]').findComponent(RouterLinkStub).props('to')).toBe('/login')
+    expect(guestContent.get('.final-command').findComponent(RouterLinkStub).props('to')).toBe('/login')
+    expect(memberContent.get('[data-testid="hero-primary"]').findComponent(RouterLinkStub).props('to')).toBe('/admin/dashboard')
+    expect(memberContent.get('.final-command').findComponent(RouterLinkStub).props('to')).toBe('/admin/dashboard')
   })
 
   it('uses a directional animated track for the hero scroll cue', () => {
