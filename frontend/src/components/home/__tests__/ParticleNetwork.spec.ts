@@ -176,7 +176,7 @@ describe('ParticleNetwork', () => {
   })
 
   it('bursts a dense particle cluster away from the viewport center', async () => {
-    const clusteredCount = 30
+    const clusteredCount = 26
     mockClusteredParticles(clusteredCount)
 
     const wrapper = mount(ParticleNetwork, { props: { interactive: false } })
@@ -198,8 +198,8 @@ describe('ParticleNetwork', () => {
     }
   })
 
-  it('does not burst when only one third of particles are clustered', async () => {
-    const clusteredCount = 24
+  it('does not burst below the thirty-five percent threshold', async () => {
+    const clusteredCount = 25
     mockClusteredParticles(clusteredCount)
 
     const wrapper = mount(ParticleNetwork, { props: { interactive: false } })
