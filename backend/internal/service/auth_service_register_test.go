@@ -82,6 +82,18 @@ type userPlatformQuotaRepoStub struct {
 	bulkInsertErr   error
 }
 
+type authGrowthRegistrationRecorderStub struct {
+	contexts []context.Context
+	users    []*User
+	err      error
+}
+
+func (r *authGrowthRegistrationRecorderStub) RecordSuccessfulRegistration(ctx context.Context, user *User) error {
+	r.contexts = append(r.contexts, ctx)
+	r.users = append(r.users, user)
+	return r.err
+}
+
 func (s *userPlatformQuotaRepoStub) BulkInsertInitial(_ context.Context, records []UserPlatformQuotaRecord) error {
 	cloned := make([]UserPlatformQuotaRecord, len(records))
 	copy(cloned, records)
@@ -391,6 +403,39 @@ func TestAuthService_Register_UsesAliasGuardedCreate(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, user)
 	require.Equal(t, 1, repo.guardedCreates)
+}
+
+func TestAuthService_Register_RecordsGrowthRegistrationAndFailsOpen(t *testing.T) {
+	tests := []struct {
+		name        string
+		recorderErr error
+	}{
+		{name: "records successful registration"},
+		{name: "recorder failure does not fail registration", recorderErr: errors.New("outbox unavailable")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			repo := &userRepoStub{nextID: 92}
+			recorder := &authGrowthRegistrationRecorderStub{err: test.recorderErr}
+			service := newAuthService(repo, map[string]string{
+				SettingKeyRegistrationEnabled: "true",
+			}, nil, nil)
+			service.SetGrowthRegistrationRecorder(recorder)
+
+			ctx := WithGrowthRegistrationSession(context.Background(), "growth-session-from-cookie")
+			token, user, err := service.Register(ctx, "growth-user@example.com", "password")
+
+			require.NoError(t, err)
+			require.NotEmpty(t, token)
+			require.NotNil(t, user)
+			require.Len(t, recorder.contexts, 1)
+			require.Len(t, recorder.users, 1)
+			require.Same(t, user, recorder.users[0])
+			session, ok := GrowthRegistrationSessionFromContext(recorder.contexts[0])
+			require.True(t, ok)
+			require.Equal(t, "growth-session-from-cookie", session)
+		})
+	}
 }
 
 func TestAuthService_Register_CheckEmailError(t *testing.T) {
