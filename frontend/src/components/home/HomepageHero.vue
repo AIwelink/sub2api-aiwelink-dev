@@ -37,7 +37,7 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-const destination = computed(() => props.authenticated ? props.dashboardPath : '/register')
+const destination = computed(() => props.authenticated ? props.dashboardPath : '/login')
 </script>
 
 <style scoped>
