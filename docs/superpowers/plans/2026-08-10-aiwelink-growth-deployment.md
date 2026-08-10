@@ -25,7 +25,7 @@
 - Create: `deploy/tests/aiwelink-growth-deployment-test.sh`
 - Modify: `.github/workflows/backend-ci.yml`
 
-- [ ] **Step 1: Create the contract test before the deployment files**
+- [x] **Step 1: Create the contract test before the deployment files**
 
 Create a POSIX shell test with these checks:
 
@@ -38,6 +38,7 @@ cd "$repo_root"
 
 compose_file=deploy/docker-compose.aiwelink-dev.yml
 env_file=deploy/.env.aiwelink-dev.example
+docker_bin=${DOCKER_BIN:-docker}
 
 fail() {
   printf 'AIWeLink growth deployment test failed: %s\n' "$1" >&2
@@ -70,14 +71,20 @@ if grep -Eq '^GROWTH_LOGIN_' "$env_file"; then
   fail 'legacy GROWTH_LOGIN_* variables must not appear in the registration template'
 fi
 
-rendered=$(mktemp)
-trap 'rm -f "$rendered"' EXIT HUP INT TERM
+render_dir=$(mktemp -d deploy/.aiwelink-growth-test.XXXXXX)
+rendered=$render_dir/rendered.yml
+cp "$compose_file" "$render_dir/docker-compose.yml"
+cp "$env_file" "$render_dir/.env"
+cleanup() {
+  rm -f "$rendered" "$render_dir/docker-compose.yml" "$render_dir/.env"
+  rmdir "$render_dir"
+}
+trap cleanup EXIT HUP INT TERM
 
-SUB2API_ENV_FILE=.env.aiwelink-dev.example \
-  docker compose \
-    --env-file "$env_file" \
-    -f "$compose_file" \
-    config >"$rendered"
+"$docker_bin" compose \
+  --env-file "$render_dir/.env" \
+  -f "$render_dir/docker-compose.yml" \
+  config >"$rendered"
 
 grep -Fq 'target: 8080' "$rendered" || fail 'container port 8080 was not rendered'
 grep -Fq 'published: "8080"' "$rendered" || fail 'development host port 8080 was not rendered'
@@ -90,7 +97,7 @@ grep -Fq 'name: 1panel-network' "$rendered" || fail 'external 1Panel network was
 printf 'AIWeLink growth deployment test passed\n'
 ```
 
-- [ ] **Step 2: Wire the test into the existing shell CI job**
+- [x] **Step 2: Wire the test into the existing shell CI job**
 
 Add this command after `docker-compose-security-test.sh` in `.github/workflows/backend-ci.yml`:
 
@@ -98,7 +105,7 @@ Add this command after `docker-compose-security-test.sh` in `.github/workflows/b
           /bin/sh deploy/tests/aiwelink-growth-deployment-test.sh
 ```
 
-- [ ] **Step 3: Run the test and verify it fails for the intended reason**
+- [x] **Step 3: Run the test and verify it fails for the intended reason**
 
 Run:
 
@@ -115,7 +122,7 @@ Expected: exit `1` with `deploy/docker-compose.aiwelink-dev.yml is missing`.
 - Create: `deploy/.env.aiwelink-dev.example`
 - Test: `deploy/tests/aiwelink-growth-deployment-test.sh`
 
-- [ ] **Step 1: Add the dedicated Compose file**
+- [x] **Step 1: Add the dedicated Compose file**
 
 Create this service model:
 
@@ -164,7 +171,7 @@ networks:
     name: ${ONEPANEL_NETWORK_NAME:-1panel-network}
 ```
 
-- [ ] **Step 2: Add the non-secret env template**
+- [x] **Step 2: Add the non-secret env template**
 
 Create a template grouped into deployment, database, Redis, application-secret, and growth-registration sections. It must contain these exact operational values:
 
@@ -216,7 +223,7 @@ GROWTH_REGISTRATION_READ_TIMEOUT_SECONDS=5
 
 Add comments explaining that production uses host port/container identity `8081`, real values must be stored only in `.env`, the service credential equals Traffic's `aiwelink` credential, and the outbox key is separate from that credential but shared by all enabled Sub2API instances that share the database.
 
-- [ ] **Step 3: Run the deployment test and verify it passes**
+- [x] **Step 3: Run the deployment test and verify it passes**
 
 Run:
 
@@ -226,7 +233,7 @@ sh deploy/tests/aiwelink-growth-deployment-test.sh
 
 Expected: `AIWeLink growth deployment test passed`.
 
-- [ ] **Step 4: Commit the tested deployment contract**
+- [x] **Step 4: Commit the tested deployment contract**
 
 ```bash
 git add .github/workflows/backend-ci.yml \
