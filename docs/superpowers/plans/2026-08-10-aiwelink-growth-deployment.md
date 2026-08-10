@@ -15,7 +15,7 @@
 - Create `deploy/docker-compose.aiwelink-dev.yml`: AIWeLink-only Sub2API service definition with external database, Redis, and Docker network.
 - Create `deploy/.env.aiwelink-dev.example`: non-secret development/gray runtime template and the eight registration-attribution variables.
 - Create `deploy/tests/aiwelink-growth-deployment-test.sh`: executable deployment contract test using static assertions plus `docker compose config`.
-- Modify `.github/workflows/backend-ci.yml`: execute the new deployment contract test in the existing shell job.
+- Modify `.github/workflows/backend-ci.yml`: execute the new deployment contract test in a dedicated Ubuntu Compose job.
 - Create `deploy/AIWELINK_GROWTH_REGISTRATION_CN.md`: Chinese deployment and diagnosis runbook.
 - Modify `deploy/README.md`: link the new AIWeLink-specific files without changing generic deployment behavior.
 
@@ -101,12 +101,17 @@ grep -Fq 'name: 1panel-network' "$rendered" || fail 'external 1Panel network was
 printf 'AIWeLink growth deployment test passed\n'
 ```
 
-- [x] **Step 2: Wire the test into the existing shell CI job**
+- [x] **Step 2: Wire the test into a dedicated Ubuntu CI job**
 
-Add this command after `docker-compose-security-test.sh` in `.github/workflows/backend-ci.yml`:
+Add a job that runs on an image with Docker Compose available, leaving the existing macOS shell job unchanged:
 
 ```yaml
-          /bin/sh deploy/tests/aiwelink-growth-deployment-test.sh
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check AIWeLink growth deployment
+        run: /bin/sh deploy/tests/aiwelink-growth-deployment-test.sh
 ```
 
 - [x] **Step 3: Run the test and verify it fails for the intended reason**
