@@ -35,7 +35,6 @@ import {
 import { Line } from 'vue-chartjs'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import type { TrendDataPoint } from '@/types'
-import { useThemePalette } from '@/composables/useThemePalette'
 
 ChartJS.register(
   CategoryScale,
@@ -49,22 +48,24 @@ ChartJS.register(
 )
 
 const { t } = useI18n()
-const themePalette = useThemePalette()
 
 const props = defineProps<{
   trendData: TrendDataPoint[]
   loading?: boolean
 }>()
 
+const isDarkMode = computed(() => {
+  return document.documentElement.classList.contains('dark')
+})
+
 const chartColors = computed(() => ({
-  text: themePalette.value.text,
-  grid: themePalette.value.grid,
-  input: themePalette.value.primary,
-  inputAlpha: themePalette.value.primaryAlpha,
-  output: themePalette.value.chartSeries[2],
-  cacheCreation: themePalette.value.chartSeries[5],
-  cacheRead: themePalette.value.chartSeries[10],
-  cacheHitRate: themePalette.value.chartSeries[3]
+  text: isDarkMode.value ? '#e5e7eb' : '#374151',
+  grid: isDarkMode.value ? '#374151' : '#e5e7eb',
+  input: '#3b82f6',
+  output: '#10b981',
+  cacheCreation: '#f59e0b',
+  cacheRead: '#06b6d4',
+  cacheHitRate: '#8b5cf6'
 }))
 
 const chartData = computed(() => {
@@ -77,7 +78,7 @@ const chartData = computed(() => {
         label: 'Input',
         data: props.trendData.map((d) => d.input_tokens),
         borderColor: chartColors.value.input,
-        backgroundColor: chartColors.value.inputAlpha,
+        backgroundColor: `${chartColors.value.input}20`,
         fill: true,
         tension: 0.3
       },
@@ -143,11 +144,6 @@ const lineOptions = computed(() => ({
       }
     },
     tooltip: {
-      backgroundColor: themePalette.value.tooltipSurface,
-      titleColor: themePalette.value.text,
-      bodyColor: themePalette.value.text,
-      borderColor: themePalette.value.grid,
-      borderWidth: 1,
       callbacks: {
         label: (context: any) => {
           if (context.dataset.yAxisID === 'yPercent') {

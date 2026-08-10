@@ -18,7 +18,6 @@ import type { ChartState } from '../types'
 import { formatHistoryLabel, sumNumbers } from '../utils/opsFormatters'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
-import { useThemePalette } from '@/composables/useThemePalette'
 
 ChartJS.register(Title, Tooltip, Legend, LineElement, LinearScale, PointElement, CategoryScale, Filler)
 
@@ -31,7 +30,14 @@ interface Props {
 
 const props = defineProps<Props>()
 const { t } = useI18n()
-const themePalette = useThemePalette()
+
+const isDarkMode = computed(() => document.documentElement.classList.contains('dark'))
+const colors = computed(() => ({
+  teal: '#14b8a6',
+  tealAlpha: '#14b8a620',
+  grid: isDarkMode.value ? '#374151' : '#f3f4f6',
+  text: isDarkMode.value ? '#9ca3af' : '#6b7280'
+}))
 
 const totalRequests = computed(() => sumNumbers(props.points.map((p) => p.request_count)))
 
@@ -48,8 +54,8 @@ const chartData = computed(() => {
           if (requests <= 0) return 0
           return switches / requests
         }),
-        borderColor: themePalette.value.primary,
-        backgroundColor: themePalette.value.primaryAlpha,
+        borderColor: colors.value.teal,
+        backgroundColor: colors.value.tealAlpha,
         fill: true,
         tension: 0.35,
         pointRadius: 0,
@@ -66,7 +72,7 @@ const state = computed<ChartState>(() => {
 })
 
 const options = computed(() => {
-  const palette = themePalette.value
+  const c = colors.value
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -75,13 +81,13 @@ const options = computed(() => {
       legend: {
         position: 'top' as const,
         align: 'end' as const,
-        labels: { color: palette.text, usePointStyle: true, boxWidth: 6, font: { size: 10 } }
+        labels: { color: c.text, usePointStyle: true, boxWidth: 6, font: { size: 10 } }
       },
       tooltip: {
-        backgroundColor: palette.tooltipSurface,
-        titleColor: palette.text,
-        bodyColor: palette.text,
-        borderColor: palette.grid,
+        backgroundColor: isDarkMode.value ? '#1f2937' : '#ffffff',
+        titleColor: isDarkMode.value ? '#f3f4f6' : '#111827',
+        bodyColor: isDarkMode.value ? '#d1d5db' : '#4b5563',
+        borderColor: c.grid,
         borderWidth: 1,
         padding: 10,
         displayColors: true,
@@ -98,7 +104,7 @@ const options = computed(() => {
         type: 'category' as const,
         grid: { display: false },
         ticks: {
-          color: palette.text,
+          color: c.text,
           font: { size: 10 },
           maxTicksLimit: 8,
           autoSkip: true,
@@ -109,9 +115,9 @@ const options = computed(() => {
         type: 'linear' as const,
         display: true,
         position: 'left' as const,
-        grid: { color: palette.grid, borderDash: [4, 4] },
+        grid: { color: c.grid, borderDash: [4, 4] },
         ticks: {
-          color: palette.text,
+          color: c.text,
           font: { size: 10 },
           callback: (value: any) => Number(value).toFixed(3)
         }
@@ -122,10 +128,10 @@ const options = computed(() => {
 </script>
 
 <template>
-  <div class="flex h-full flex-col rounded-3xl bg-surface p-6 shadow-sm ring-1 ring-theme-border">
+  <div class="flex h-full flex-col rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-900/5 dark:bg-dark-800 dark:ring-dark-700">
     <div class="mb-4 flex shrink-0 items-center justify-between">
       <h3 class="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
-        <svg class="h-4 w-4 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg class="h-4 w-4 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h10M7 12h6m-6 5h3" />
         </svg>
         {{ t('admin.ops.switchRateTrend') }}
