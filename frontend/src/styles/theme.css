@@ -1,0 +1,83 @@
+:root {
+  color-scheme: light;
+
+  --color-primary-50: 255 241 244;
+  --color-primary-100: 255 228 234;
+  --color-primary-200: 254 205 216;
+  --color-primary-300: 252 163 183;
+  --color-primary-400: 244 94 127;
+  --color-primary-500: 210 31 75;
+  --color-primary-600: 184 23 63;
+  --color-primary-700: 154 21 55;
+  --color-primary-800: 128 23 51;
+  --color-primary-900: 110 24 48;
+  --color-primary-950: 61 7 22;
+
+  --color-accent-50: 255 251 235;
+  --color-accent-100: 255 244 194;
+  --color-accent-200: 255 231 128;
+  --color-accent-300: 251 207 75;
+  --color-accent-400: 247 196 59;
+  --color-accent-500: 244 189 56;
+  --color-accent-600: 211 148 24;
+  --color-accent-700: 173 106 14;
+  --color-accent-800: 142 82 18;
+  --color-accent-900: 117 66 19;
+  --color-accent-950: 67 33 5;
+
+  --color-ink-50: 250 247 240;
+  --color-ink-100: 238 237 233;
+  --color-ink-200: 217 221 225;
+  --color-ink-300: 170 178 188;
+  --color-ink-400: 139 149 160;
+  --color-ink-500: 104 115 128;
+  --color-ink-600: 74 85 98;
+  --color-ink-700: 48 57 69;
+  --color-ink-800: 23 29 36;
+  --color-ink-900: 13 17 22;
+  --color-ink-950: 3 5 7;
+
+  --color-on-primary: 255 255 255;
+  --color-canvas: 245 247 248;
+  --color-surface: 255 255 255;
+  --color-surface-muted: 237 241 243;
+  --color-theme-border: 217 224 228;
+  --color-theme-text: 32 42 49;
+  --color-theme-muted: 99 113 122;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --color-primary-50: 255 251 235;
+  --color-primary-100: 255 242 198;
+  --color-primary-200: 255 229 135;
+  --color-primary-300: 255 211 86;
+  --color-primary-400: 255 201 63;
+  --color-primary-500: 255 194 71;
+  --color-primary-600: 224 153 22;
+  --color-primary-700: 184 112 15;
+  --color-primary-800: 150 85 18;
+  --color-primary-900: 123 69 19;
+  --color-primary-950: 70 35 4;
+
+  --color-accent-50: 255 241 244;
+  --color-accent-100: 255 228 233;
+  --color-accent-200: 254 204 215;
+  --color-accent-300: 252 161 180;
+  --color-accent-400: 246 96 126;
+  --color-accent-500: 226 49 92;
+  --color-accent-600: 197 32 75;
+  --color-accent-700: 165 27 66;
+  --color-accent-800: 138 28 61;
+  --color-accent-900: 118 27 57;
+  --color-accent-950: 66 9 27;
+
+  --color-on-primary: 24 16 5;
+  --color-canvas: 3 5 7;
+  --color-surface: 13 17 22;
+  --color-surface-muted: 23 29 36;
+  --color-theme-border: 48 57 69;
+  --color-theme-text: 250 247 240;
+  --color-theme-muted: 170 178 188;
+}
