@@ -39,7 +39,9 @@ func TestGrowthRegistrationSessionContext(t *testing.T) {
 	})
 
 	t.Run("nil context is safe", func(t *testing.T) {
+		//nolint:staticcheck // Exercises the defensive nil-context fallback.
 		require.Nil(t, WithGrowthRegistrationSession(nil, "growth-session"))
+		//nolint:staticcheck // Exercises the defensive nil-context fallback.
 		_, ok := GrowthRegistrationSessionFromContext(nil)
 		require.False(t, ok)
 	})

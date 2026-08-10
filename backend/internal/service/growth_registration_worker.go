@@ -164,7 +164,11 @@ func newGrowthRegistrationHTTPClient(
 		client = *base
 		switch configured := base.Transport.(type) {
 		case nil:
-			transport = http.DefaultTransport.(*http.Transport).Clone()
+			defaultTransport, ok := http.DefaultTransport.(*http.Transport)
+			if !ok {
+				return nil, fmt.Errorf("unexpected default transport type %T", http.DefaultTransport)
+			}
+			transport = defaultTransport.Clone()
 		case *http.Transport:
 			transport = configured.Clone()
 		default:
