@@ -16,7 +16,11 @@ fail() {
 assert_line() {
   file=$1
   line=$2
-  grep -Fqx "$line" "$file" || fail "$file is missing: $line"
+  awk -v expected="$line" '
+    { sub(/\r$/, "") }
+    $0 == expected { found = 1 }
+    END { exit found ? 0 : 1 }
+  ' "$file" || fail "$file is missing: $line"
 }
 
 test -f "$compose_file" || fail "$compose_file is missing"
