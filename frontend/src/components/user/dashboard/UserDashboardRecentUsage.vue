@@ -1,43 +1,52 @@
 <template>
-  <div class="card">
-    <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-dark-700">
-      <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('dashboard.recentUsage') }}</h2>
-      <span class="badge badge-gray">{{ t('dashboard.last7Days') }}</span>
-    </div>
-    <div class="p-6">
-      <div v-if="loading" class="flex items-center justify-center py-12">
-        <LoadingSpinner size="lg" />
+  <section class="dashboard-section dashboard-embedded-section">
+    <header class="dashboard-section-header">
+      <div>
+        <h2 class="text-sm font-semibold text-theme-text">{{ t('dashboard.recentUsage') }}</h2>
+        <p class="mt-0.5 text-[11px] text-theme-muted">{{ t('dashboard.last7Days') }}</p>
       </div>
-      <div v-else-if="data.length === 0" class="py-8">
+      <router-link to="/usage" class="inline-flex items-center gap-1 text-[11px] font-medium text-theme-muted transition-colors hover:text-theme-text">
+        {{ t('dashboard.viewAllUsage') }}
+        <Icon name="arrowRight" size="sm" />
+      </router-link>
+    </header>
+    <div>
+      <div v-if="loading" class="flex items-center justify-center py-12">
+        <LoadingSpinner size="md" />
+      </div>
+      <div v-else-if="data.length === 0" class="py-6">
         <EmptyState :title="t('dashboard.noUsageRecords')" :description="t('dashboard.startUsingApi')" />
       </div>
-      <div v-else class="space-y-3">
-        <div v-for="log in data" :key="log.id" class="flex items-center justify-between rounded-xl bg-gray-50 p-4 transition-colors hover:bg-gray-100 dark:bg-dark-800/50 dark:hover:bg-dark-800">
-          <div class="flex items-center gap-4">
-            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-100 dark:bg-primary-900/30">
-              <Icon name="beaker" size="md" class="text-primary-600 dark:text-primary-400" />
-            </div>
-            <div>
-              <p class="text-sm font-medium text-gray-900 dark:text-white">{{ log.model }}</p>
-              <p class="text-xs text-gray-500 dark:text-dark-400">{{ formatDateTime(log.created_at) }}</p>
-            </div>
-          </div>
-          <div class="text-right">
-            <p class="text-sm font-semibold">
-              <span class="text-green-600 dark:text-green-400" :title="t('dashboard.actual')">${{ formatCost(log.actual_cost) }}</span>
-              <span class="font-normal text-gray-400 dark:text-gray-500" :title="t('dashboard.standard')"> / ${{ formatCost(log.total_cost) }}</span>
-            </p>
-            <p class="text-xs text-gray-500 dark:text-dark-400">{{ (log.input_tokens + log.output_tokens).toLocaleString() }} tokens</p>
-          </div>
+      <div v-else>
+        <div class="hidden grid-cols-[minmax(0,1fr)_100px_128px_124px] gap-4 border-b border-[rgb(var(--workbench-border))] px-4 py-2 font-mono text-[10px] text-theme-muted md:grid md:px-5">
+          <span>{{ t('dashboard.model') }}</span>
+          <span class="text-right">{{ t('dashboard.tokens') }}</span>
+          <span class="text-right">{{ t('dashboard.actual') }}</span>
+          <span class="text-right">{{ t('usage.time') }}</span>
         </div>
-
-        <router-link to="/usage" class="flex items-center justify-center gap-2 py-3 text-sm font-medium text-primary-600 transition-colors hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
-          {{ t('dashboard.viewAllUsage') }}
-          <Icon name="arrowRight" size="sm" />
-        </router-link>
+        <div
+          v-for="log in data"
+          :key="log.id"
+          class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-[rgb(var(--workbench-border))] px-4 py-3 transition-colors last:border-b-0 hover:bg-[rgb(var(--workbench-surface-hover))] md:grid-cols-[minmax(0,1fr)_100px_128px_124px] md:px-5"
+        >
+          <div class="min-w-0">
+            <p class="truncate text-xs font-medium text-theme-text" :title="log.model">{{ log.model }}</p>
+            <p class="mt-0.5 truncate font-mono text-[10px] text-theme-muted">{{ log.inbound_endpoint || log.request_type || 'API' }}</p>
+          </div>
+          <p class="hidden text-right font-mono text-[11px] text-theme-muted md:block">{{ (log.input_tokens + log.output_tokens).toLocaleString() }}</p>
+          <p class="text-right font-mono text-[11px]">
+            <span class="text-emerald-600 dark:text-emerald-400" :title="t('dashboard.actual')">${{ formatCost(log.actual_cost) }}</span>
+            <span class="text-theme-muted" :title="t('dashboard.standard')"> / ${{ formatCost(log.total_cost) }}</span>
+          </p>
+          <div class="hidden text-right md:block">
+            <p class="font-mono text-[11px] text-theme-text">{{ formatTime(log.created_at) }}</p>
+            <p class="mt-0.5 font-mono text-[10px] text-theme-muted">{{ formatDate(log.created_at) }}</p>
+          </div>
+          <p class="col-span-2 font-mono text-[10px] text-theme-muted md:hidden">{{ formatDateTime(log.created_at) }} · {{ (log.input_tokens + log.output_tokens).toLocaleString() }} tokens</p>
+        </div>
       </div>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -54,4 +63,6 @@ defineProps<{
 }>()
 const { t } = useI18n()
 const formatCost = (c: number) => c.toFixed(4)
+const formatTime = (value: string) => new Date(value).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })
+const formatDate = (value: string) => new Date(value).toLocaleDateString(undefined, { month: '2-digit', day: '2-digit' })
 </script>

@@ -44,6 +44,16 @@
   --color-theme-border: 217 224 228;
   --color-theme-text: 32 42 49;
   --color-theme-muted: 99 113 122;
+
+  --workbench-canvas: 247 247 247;
+  --workbench-surface: 255 255 255;
+  --workbench-surface-hover: 239 239 239;
+  --workbench-text: 16 16 16;
+  --workbench-muted: 95 95 95;
+  --workbench-border: 222 222 222;
+  --workbench-border-strong: 200 200 200;
+  --workbench-accent-gold: 211 148 24;
+  --workbench-accent-pink: 210 31 75;
 }
 
 .dark {
@@ -80,4 +90,14 @@
   --color-theme-border: 48 57 69;
   --color-theme-text: 250 247 240;
   --color-theme-muted: 170 178 188;
+
+  --workbench-canvas: 5 6 8;
+  --workbench-surface: 13 17 22;
+  --workbench-surface-hover: 23 29 36;
+  --workbench-text: 246 243 235;
+  --workbench-muted: 165 170 179;
+  --workbench-border: 48 57 69;
+  --workbench-border-strong: 66 77 91;
+  --workbench-accent-gold: 255 194 71;
+  --workbench-accent-pink: 226 49 92;
 }
