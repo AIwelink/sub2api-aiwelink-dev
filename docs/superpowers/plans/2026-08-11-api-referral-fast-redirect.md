@@ -1,126 +1,150 @@
-# API Referral Fast Redirect Implementation Plan
+# API Referral Homepage Redirect Implementation Plan
 
-> For agentic workers: use superpowers:executing-plans to implement this plan task-by-task.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a backend-only /r/{code} entry point to Sub2 and make Traffic redirect API-domain referrals directly to the API registration page while preserving attribution and the existing homepage flow.
+**Goal:** Keep referral attribution for `api.aiwelink.cc/r/{code}`, then return the browser to the API homepage so its existing `HomepageIntro` animation plays instead of opening registration directly.
 
-**Architecture:** Sub2 validates the referral code format locally and returns an immediate 302 to the public Traffic URL with fixed entry=api. It does not query a database, call Traffic, or create a cookie. Traffic remains the only authority for code lookup, visit recording, attribution cookie issuance, and final target selection; entry=api selects a fixed configured URL and never accepts a caller-controlled redirect.
+**Architecture:** Sub2 continues to return an immediate backend `302` to the public Traffic route with the closed `entry=api` selector. Traffic remains responsible for attribution and the parent-domain cookie, but `entry=api` selects the fixed API homepage `https://api.aiwelink.cc/`. A cross-domain round trip creates a new API document, so the existing homepage intro runs without a new query flag or frontend component.
 
-**Tech Stack:** Go, Gin, Viper, Go test; Python 3.12, FastAPI, Pydantic Settings, SQLAlchemy, pytest, Ruff, mypy.
+**Tech Stack:** Go, Gin, Go test; Python 3.12, FastAPI, Pydantic Settings, pytest, Ruff, mypy; Vue 3 and Vitest for existing homepage animation verification.
 
 ---
 
-### Task 1: Confirm isolated worktrees and baselines
+### Task 1: Change Traffic's fixed API target
 
 **Files:**
-- No source changes.
+- Modify: `tests/unit/test_config.py`
+- Modify: `tests/unit/test_redirect_service.py`
+- Modify: `tests/http/test_redirect.py`
+- Modify: `src/aiwelink_growth/config.py`
+- Modify: `src/aiwelink_growth/public_gateway/service.py`
+- Modify: `.env.example`
 
-- [x] Verify Sub2 is isolated at D:/Data/Codex 项目文件夹/sub2api-aiwelink-dev/.worktrees/growth-registration-binding on codex/api-referral-fast-redirect.
-- [x] Verify Traffic is isolated at C:/Users/Achernar/AppData/Local/Temp/codex-worktrees/traffic-api-referral on codex/api-referral-api-target, based on origin/main.
-- [x] Run the baseline commands:
-  - In Sub2 backend: go test ./internal/config ./internal/server/routes
-  - In Traffic: python -m uv run pytest tests/unit/test_config.py tests/unit/test_redirect_service.py tests/http/test_redirect.py -q
-- [x] Expected baseline: Sub2 packages pass and Traffic reports 35 passed.
+- [ ] **Step 1: Write failing target tests**
 
-### Task 2: Add Sub2 configuration and route tests
+Rename the setting contract from `api_registration_url` / `API_REGISTRATION_URL` to `api_homepage_url` / `API_HOMEPAGE_URL`. Assert that `entry="api"` returns `https://api.aiwelink.cc/`, while missing, unknown, and URL-shaped entries still return the public homepage.
 
-**Files:**
-- Modify: backend/internal/config/config.go
-- Modify: backend/internal/config/growth_registration_test.go
-- Create: backend/internal/server/routes/growth_referral.go
-- Create: backend/internal/server/routes/growth_referral_test.go
-- Modify: backend/internal/server/router.go
-- Modify: backend/internal/web/embed_on.go
-- Modify: backend/internal/web/embed_test.go
+```python
+assert select_redirect_target(settings, "api") == "https://api.aiwelink.cc/"
+assert select_redirect_target(settings, "https://evil.example") == "https://aiwelink.cc/"
+```
 
-- [ ] Write failing configuration tests for the default and GROWTH_REGISTRATION_REFERRAL_BASE_URL environment value. Add a Load validation case for an enabled feature with an http URL.
-- [ ] Run go test ./internal/config -run 'TestLoadGrowthRegistration' and confirm failure because ReferralBaseURL does not yet exist.
-- [ ] Write failing route tests for valid uppercase normalization, exact Location https://aiwelink.cc/r/{code}?entry=api, Cache-Control no-store, invalid code, disabled feature, non-GET, discarded input query, and no dependency on a database or HTTP client.
-- [ ] Write a web test proving /r/ is bypassed by the embedded SPA middleware.
-- [ ] Run go test ./internal/server/routes ./internal/web -run 'GrowthReferral|EmbeddedFrontend.*Referral' and confirm the new tests fail for the missing implementation.
+- [ ] **Step 2: Verify RED**
 
-### Task 3: Implement Sub2 fast redirect minimally
+Run:
 
-**Files:**
-- Modify: backend/internal/config/config.go
-- Create/modify: backend/internal/server/routes/growth_referral.go
-- Modify: backend/internal/server/router.go
-- Modify: backend/internal/web/embed_on.go
+```powershell
+.venv\Scripts\python.exe -m pytest tests/unit/test_config.py tests/unit/test_redirect_service.py tests/http/test_redirect.py -q
+```
 
-- [ ] Add ReferralBaseURL to GrowthRegistrationConfig, register its environment key, trim it during normalization, and default it to https://aiwelink.cc/r.
-- [ ] When growth registration is enabled, parse the base with net/url and require HTTPS, a non-empty host, no userinfo, no query, no fragment, and exact path /r. Return a configuration error before startup for invalid values.
-- [ ] Add RegisterGrowthReferralRoutes(r *gin.Engine, cfg config.GrowthRegistrationConfig). Register only GET /r/:code and validate code with ^[a-hj-km-np-z2-9]{8}$. Normalize uppercase to lowercase.
-- [ ] For an enabled valid code, build the target with url.URL and url.Values and return 302 with only entry=api and Cache-Control: no-store. For invalid code or disabled feature, return 302 to /register with the same cache policy.
-- [ ] Never forward the request query, create a client, touch a repository, or write a cookie.
-- [ ] Register this route after core logger/session/CORS/security/timing middleware but before embedded frontend middleware. Ensure the embedded frontend bypass predicate includes /r/ for defense in depth.
-- [ ] Run gofmt on changed Go files and go test ./internal/config ./internal/server/routes ./internal/web.
+Expected: failures still report `/register` or the missing `api_homepage_url` setting.
 
-### Task 4: Document Sub2 deployment configuration
+- [ ] **Step 3: Implement the fixed homepage target**
 
-**Files:**
-- Modify: deploy/config.example.yaml
-- Modify: deploy/.env.example
-- Modify: deploy/.env.aiwelink-dev.example
-- Modify: deploy/AIWELINK_GROWTH_REGISTRATION_CN.md
+Add the Pydantic setting with the exact production value and select it only for the closed `api` entry:
 
-- [ ] Add growth_registration.referral_base_url: https://aiwelink.cc/r and GROWTH_REGISTRATION_REFERRAL_BASE_URL=https://aiwelink.cc/r.
-- [ ] Explain that this is only the browser-visible Traffic entry, has no Sub2 database or HTTP dependency, must be HTTPS with exact /r path, and is separate from GROWTH_LOGIN_*.
-- [ ] Document api.aiwelink.cc/r/{code} -> Sub2 302 -> Traffic /r/{code}?entry=api -> API registration, Traffic-first deployment, and private port 8300 with no reverse proxy.
-- [ ] Run git diff --check.
+```python
+api_homepage_url: AnyHttpUrl = AnyHttpUrl("https://api.aiwelink.cc/")
 
-### Task 5: Add Traffic API target tests
+def select_redirect_target(settings: Settings, entry: str | None) -> str:
+    if entry == "api":
+        return str(settings.api_homepage_url)
+    return str(settings.public_homepage_url)
+```
+
+Production validation must reject non-HTTPS, userinfo, alternate hosts, ports, paths, query strings, and fragments by requiring the exact string `https://api.aiwelink.cc/`.
+
+- [ ] **Step 4: Verify GREEN and static checks**
+
+Run the focused pytest command, then:
+
+```powershell
+.venv\Scripts\python.exe -m ruff check .
+.venv\Scripts\python.exe -m mypy
+```
+
+Expected: focused tests pass, Ruff reports `All checks passed!`, and mypy reports no issues.
+
+### Task 2: Make Sub2 referral fallbacks return home
 
 **Files:**
-- Modify: src/aiwelink_growth/config.py
-- Modify: tests/unit/test_config.py
-- Modify: src/aiwelink_growth/public_gateway/service.py
-- Modify: src/aiwelink_growth/public_gateway/router.py
-- Modify: tests/unit/test_redirect_service.py
-- Modify: tests/http/test_redirect.py
+- Modify: `backend/internal/server/routes/growth_referral_test.go`
+- Modify: `backend/internal/server/routes/growth_referral.go`
 
-- [ ] Write failing Settings tests for API_REGISTRATION_URL parsing and production rejection of any value other than exact HTTPS https://api.aiwelink.cc/register, including query, fragment, host, port, and path changes.
-- [ ] Write a pure target-selection test: missing entry and unknown entry use PUBLIC_HOMEPAGE_URL; entry=api uses API_REGISTRATION_URL.
-- [ ] Add an HTTP test proving entry=api reaches the service and next=https://evil.example cannot change the target.
-- [ ] Run python -m uv run pytest tests/unit/test_config.py tests/unit/test_redirect_service.py tests/http/test_redirect.py -q and confirm the new tests fail because the setting and selector do not exist.
+- [ ] **Step 1: Write failing fallback tests**
 
-### Task 6: Implement Traffic fixed API target
+Change the invalid-code and disabled-feature assertions from `/register` to `/`:
+
+```go
+require.Equal(t, "/", rec.Header().Get("Location"))
+```
+
+- [ ] **Step 2: Verify RED**
+
+Run:
+
+```powershell
+go test -count=1 ./internal/server/routes -run GrowthReferral
+```
+
+Expected: the two fallback tests fail because the current handler returns `/register`.
+
+- [ ] **Step 3: Implement the homepage fallback**
+
+Return the local homepage for both disabled and invalid referrals:
+
+```go
+c.Redirect(http.StatusFound, "/")
+```
+
+Keep valid-code normalization, `entry=api`, `Cache-Control: no-store`, and the no-database/no-HTTP-client behavior unchanged.
+
+- [ ] **Step 4: Verify GREEN**
+
+Run:
+
+```powershell
+gofmt -w internal/server/routes/growth_referral.go internal/server/routes/growth_referral_test.go
+go test -count=1 ./internal/config ./internal/server/routes ./internal/web
+```
+
+Expected: all three packages pass.
+
+### Task 3: Align deployment documentation
 
 **Files:**
-- Modify: src/aiwelink_growth/config.py
-- Modify: src/aiwelink_growth/public_gateway/service.py
-- Modify: src/aiwelink_growth/public_gateway/router.py
+- Modify: `deploy/AIWELINK_GROWTH_REGISTRATION_CN.md`
+- Modify: `docs/superpowers/specs/2026-08-11-api-referral-fast-redirect-design.md` only if implementation exposes a contradiction
+- Modify: `.env.example` in Traffic as covered by Task 1
 
-- [ ] Add api_registration_url with default https://api.aiwelink.cc/register. In production require that exact string; reject userinfo, query, fragment, non-HTTPS, another host, another port, and another path.
-- [ ] Implement redirect_target(entry, settings) -> str returning only the API URL when entry == api, otherwise the homepage URL. Do not parse a URL from request input and do not add next, redirect, origin, or similar parameters.
-- [ ] Add entry: str | None to RedirectRequestData. Read only request.query_params.get('entry') in the router and pass it to the service.
-- [ ] Compute the selected target once at the beginning of RedirectService.redirect; pass it to _fallback for invalid_code, excluded, and database_error and use it for attribution_updated. Preserve cookie issuance, attribution writes, rate limits, and result labels.
-- [ ] Run the focused tests, ruff format --check ., ruff check ., and mypy src through python -m uv run.
+- [ ] Replace Traffic's old registration target name/value with `API_HOMEPAGE_URL=https://api.aiwelink.cc/`.
+- [ ] Document the chain as `API /r` -> Traffic attribution -> API homepage -> existing `HomepageIntro`.
+- [ ] State that no referral-specific frontend state, animation component, or query parameter is added.
+- [ ] Run `git diff --check` in both worktrees.
 
-### Task 7: Document Traffic deployment configuration
-
-**Files:**
-- Modify: .env.example
-- Modify: README.md
-
-- [ ] Add API_REGISTRATION_URL=https://api.aiwelink.cc/register beside the homepage/fallback settings.
-- [ ] Explain missing entry keeps the homepage flow, entry=api records attribution and redirects directly to API registration, unknown entries fall back to homepage, and port 8300 stays loopback/private.
-- [ ] Run git diff --check.
-
-### Task 8: Final verification and separate PRs
+### Task 4: Verify the existing homepage animation contract
 
 **Files:**
-- All files listed in Tasks 2-7.
+- No frontend production changes expected.
+- Verify: `frontend/src/composables/__tests__/useHomepageIntro.spec.ts`
+- Verify: `frontend/src/components/home/__tests__/AIWeLinkHome.spec.ts`
 
-- [ ] Run Sub2:
-  - go test ./internal/config ./internal/server/routes ./internal/web
-  - go test ./internal/...
-- [ ] Run Traffic:
-  - python -m uv run pytest tests/unit/test_config.py tests/unit/test_redirect_service.py tests/http/test_redirect.py -q
-  - python -m uv run ruff format --check .
-  - python -m uv run ruff check .
-  - python -m uv run mypy src
-- [ ] Review git status -sb, git diff --stat, and git diff --check separately. Stage only feature files; never stage the dirty Traffic main checkout or .venv.
-- [ ] Commit Sub2 as feat: add API referral fast redirect and Traffic as feat: route API referrals to registration.
-- [ ] Push codex/api-referral-fast-redirect and create a PR to aiwelink-dev in AIwelink/sub2api-aiwelink-dev.
-- [ ] Push codex/api-referral-api-target and create a PR to main in AIwelink/traffic-analysis.
-- [ ] Do not merge either PR.
+- [ ] Run:
+
+```powershell
+pnpm exec vitest run src/composables/__tests__/useHomepageIntro.spec.ts src/components/home/__tests__/AIWeLinkHome.spec.ts
+```
+
+Expected: the first mount starts at `preparing`, proceeds through `composing` and `revealing`, and reaches `ready`. Because the Traffic redirect loads a new API document, this existing first-mount behavior supplies the requested animation.
+
+### Task 5: Commit, push, and update existing Draft PRs
+
+**Files:**
+- All files changed in Tasks 1-3.
+
+- [ ] Run Traffic unit/http/contract tests and Sub2 affected Go tests.
+- [ ] Confirm each worktree is clean except for the intended files and run `git diff --check`.
+- [ ] Commit Traffic with `fix: return API referrals to homepage` and push `codex/api-referral-api-target`.
+- [ ] Commit Sub2 with `fix: return referral fallbacks to homepage` and push `codex/api-referral-fast-redirect`.
+- [ ] Confirm Traffic PR #1 still targets `main` and Sub2 PR #20 still targets `aiwelink-dev`.
+- [ ] Keep both PRs unmerged; do not modify Sub2 `main`.
