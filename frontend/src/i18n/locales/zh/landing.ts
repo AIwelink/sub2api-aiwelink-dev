@@ -26,14 +26,14 @@ export default {
       },
       hero: {
         eyebrow: 'ONE ENDPOINT · EVERY MODEL',
-        description: '一个 API，连接所有主流模型。为开发者、团队、企业提供稳定、统一、透明的模型接入。',
+        description: '一个 API，连接所有主流模型。为开发者和小团队提供稳定、统一、透明的模型接入体验。',
         primary: '点击开始',
         secondary: '了解接入方式'
       },
       useCases: {
         index: '01 / USE CASES',
-        title: '从 Coding 到 科研 与 Agent 接入',
-        lead: '让模型成为工作流的一部分。',
+        title: '从 Coding 到科研与 Agent，接入方式保持一致。',
+        lead: '按真实使用场景组织能力，让模型成为工作流的一部分。',
         coding: {
           title: 'Coding',
           description: 'Codex · Claude Code'
@@ -65,7 +65,7 @@ export default {
       },
       cta: {
         eyebrow: 'BUILD WITH AIwelink',
-        title: '现在，开始你的创造',
+        title: '现在，连接你的下一次构建。',
         description: '进入平台，创建密钥并开始调用。',
         register: '点击开始'
       }
