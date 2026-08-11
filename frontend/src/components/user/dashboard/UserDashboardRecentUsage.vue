@@ -22,7 +22,7 @@
           <span>{{ t('dashboard.model') }}</span>
           <span class="text-right">{{ t('dashboard.tokens') }}</span>
           <span class="text-right">{{ t('dashboard.actual') }}</span>
-          <span class="text-right">{{ t('dashboard.time') }}</span>
+          <span class="text-right">{{ t('usage.time') }}</span>
         </div>
         <div
           v-for="log in data"

@@ -1,6 +1,6 @@
 <template>
   <header class="workbench-header sticky top-0 z-30">
-    <div class="flex h-14 items-center justify-between gap-2 px-2 sm:px-4 md:px-6">
+    <div class="flex h-full items-center justify-between gap-2 px-2 sm:px-4 md:px-6">
       <!-- Left: Mobile Menu Toggle + Page Title -->
       <div class="flex shrink-0 items-center gap-2 sm:gap-4">
         <button

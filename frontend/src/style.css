@@ -683,6 +683,7 @@
   }
 
   .workbench-header {
+    height: 56px;
     background: rgb(var(--workbench-surface));
     border-bottom: 1px solid rgb(var(--workbench-border));
   }

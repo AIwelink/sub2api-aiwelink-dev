@@ -27,8 +27,10 @@ describe('authenticated workbench visual contract', () => {
     expect(layoutSource).not.toContain('bg-mesh-gradient')
 
     expect(headerSource).toContain('workbench-header')
+    expect(headerSource).toContain('class="flex h-full items-center')
     expect(headerSource).not.toContain('class="glass')
     expect(headerSource).not.toContain('h-16')
+    expect(sharedStyles).toMatch(/\.workbench-header\s*\{[^}]*height: 56px/)
 
     expect(sidebarSource).toContain("sidebarCollapsed ? 'w-16' : 'w-56'")
     expect(sidebarSource).not.toContain('shadow-glow')
@@ -56,5 +58,7 @@ describe('authenticated workbench visual contract', () => {
     expect(combined).not.toContain('stat-card')
     expect(combined).not.toContain('rounded-2xl')
     expect(combined).not.toContain('shadow-card')
+    expect(dashboardSources[4]).toContain("t('usage.time')")
+    expect(dashboardSources[4]).not.toContain("t('dashboard.time')")
   })
 })
