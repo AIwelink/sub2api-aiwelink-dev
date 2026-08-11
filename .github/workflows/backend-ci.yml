@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  security-events: write
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
@@ -132,3 +133,108 @@ jobs:
           version: v2.9
           args: --timeout=30m
           working-directory: backend
+
+  backend-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - name: Run govulncheck
+        working-directory: backend
+        run: make security
+
+  frontend-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Audit production dependencies
+        working-directory: frontend
+        run: pnpm audit --prod --audit-level=high --json > audit.json || true
+      - name: Validate audit exceptions
+        run: >-
+          python tools/check_pnpm_audit_exceptions.py
+          --audit frontend/audit.json
+          --exceptions .github/audit-exceptions.yml
+
+  repository-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Scan repository vulnerabilities, secrets, and misconfigurations
+        uses: aquasecurity/trivy-action@2736533278103862a861f4a35ebac3e97854d956
+        with:
+          version: v0.73.0
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+  codeql:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [go, javascript-typescript]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+      - name: Set up Go
+        if: matrix.language == 'go'
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - name: Build Go database
+        if: matrix.language == 'go'
+        working-directory: backend
+        run: go build ./...
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4
+
+  ci-gate:
+    if: always()
+    runs-on: ubuntu-latest
+    needs:
+      - shell
+      - compose
+      - unit-tests
+      - integration-tests
+      - growth-contract
+      - frontend-checks
+      - frontend-tests
+      - golangci-lint
+      - backend-security
+      - frontend-security
+      - repository-scan
+      - codeql
+    steps:
+      - name: Require every CI dependency
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: jq -e 'all(.[]; .result == "success")' <<<"$NEEDS_JSON"
