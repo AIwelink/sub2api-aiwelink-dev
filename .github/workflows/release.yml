@@ -22,17 +22,59 @@ env:
   SIMPLE_RELEASE: ${{ github.event.inputs.simple_release == 'true' || vars.SIMPLE_RELEASE == 'true' }}
 
 permissions:
+  checks: read
   contents: write
   packages: write
 
 jobs:
   validate-version:
     runs-on: ubuntu-latest
+    outputs:
+      release_sha: ${{ steps.release_commit.outputs.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
+          fetch-depth: 0
           ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Resolve release commit
+        id: release_commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify release commit belongs to main
+        env:
+          RELEASE_SHA: ${{ steps.release_commit.outputs.sha }}
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$RELEASE_SHA" origin/main; then
+            echo "::error::Release commit $RELEASE_SHA is not contained in main."
+            exit 1
+          fi
+
+      - name: Verify successful ci-gate for release commit
+        uses: actions/github-script@v8
+        env:
+          RELEASE_SHA: ${{ steps.release_commit.outputs.sha }}
+        with:
+          script: |
+            const { owner, repo } = context.repo
+            const response = await github.rest.checks.listForRef({
+              owner,
+              repo,
+              ref: process.env.RELEASE_SHA,
+              check_name: 'ci-gate',
+              filter: 'latest',
+              per_page: 100,
+            })
+            const passed = response.data.check_runs.some((run) =>
+              run.name === 'ci-gate' &&
+              run.head_sha === process.env.RELEASE_SHA &&
+              run.conclusion === 'success'
+            )
+            if (!passed) {
+              core.setFailed(`No successful ci-gate found for ${process.env.RELEASE_SHA}`)
+            }
 
       - name: Validate committed version metadata
         env:
@@ -188,6 +230,34 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Build AIWeLink release scan image
+        if: ${{ steps.private_registry.outputs.enabled == 'true' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          push: false
+          build-args: |
+            VERSION=${{ steps.release_metadata.outputs.version }}
+            UPSTREAM_VERSION=${{ steps.release_metadata.outputs.upstream_version }}
+            COMMIT=${{ needs.validate-version.outputs.release_sha }}
+          tags: sub2api-aiwelink-release-scan:${{ steps.release_metadata.outputs.version }}
+          cache-from: type=gha,scope=aiwelink-release
+          cache-to: type=gha,mode=max,scope=aiwelink-release
+
+      - name: Scan AIWeLink release image
+        if: ${{ steps.private_registry.outputs.enabled == 'true' }}
+        uses: aquasecurity/trivy-action@2736533278103862a861f4a35ebac3e97854d956
+        with:
+          version: v0.73.0
+          scan-type: image
+          image-ref: sub2api-aiwelink-release-scan:${{ steps.release_metadata.outputs.version }}
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
       - name: Login to AIWeLink Container Registry
         if: ${{ steps.private_registry.outputs.enabled == 'true' }}
         uses: docker/login-action@v3
@@ -206,10 +276,10 @@ jobs:
           build-args: |
             VERSION=${{ steps.release_metadata.outputs.version }}
             UPSTREAM_VERSION=${{ steps.release_metadata.outputs.upstream_version }}
-            COMMIT=${{ github.sha }}
+            COMMIT=${{ needs.validate-version.outputs.release_sha }}
           tags: |
             docker.aiwelink.cc/sub2api-aiwelink-dev:${{ steps.release_metadata.outputs.version }}
-            docker.aiwelink.cc/sub2api-aiwelink-dev:latest
+          cache-from: type=gha,scope=aiwelink-release
 
       # Update DockerHub description
       - name: Update DockerHub description

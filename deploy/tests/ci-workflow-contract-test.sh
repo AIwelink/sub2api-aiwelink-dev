@@ -36,7 +36,9 @@ assert_contains "$CI" 'type=sha,prefix=main-,format=short,enable='
 assert_not_contains "$CI" 'type=raw,value=${{ steps.version.outputs.version }}'
 assert_not_contains "$SECURITY" "node-version: '20'"
 assert_contains "$SECURITY" "node-version: '24'"
+assert_contains "$RELEASE" 'Verify release commit belongs to main'
 assert_contains "$RELEASE" 'Verify successful ci-gate for release commit'
+assert_contains "$RELEASE" 'Scan AIWeLink release image'
 assert_not_contains "$RELEASE" 'docker.aiwelink.cc/sub2api-aiwelink-dev:latest'
 assert_contains "$MAKEFILE" 'pnpm --dir frontend run test:run'
 assert_contains "$MAKEFILE" 'pnpm --dir frontend run build'
