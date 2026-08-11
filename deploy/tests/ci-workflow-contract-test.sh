@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 CI="$ROOT_DIR/.github/workflows/backend-ci.yml"
 SECURITY="$ROOT_DIR/.github/workflows/security-scan.yml"
+TRIVY_IGNORE="$ROOT_DIR/.trivyignore.yaml"
+BACKEND_DOCKERFILE="$ROOT_DIR/backend/Dockerfile"
 RELEASE="$ROOT_DIR/.github/workflows/release.yml"
 GROWTH_CANARY="$ROOT_DIR/.github/workflows/growth-public-canary.yml"
 GROWTH_CANARY_SCRIPT="$ROOT_DIR/deploy/tests/growth-public-canary.sh"
@@ -25,6 +27,15 @@ assert_not_contains() {
   fi
 }
 
+assert_count() {
+  local file=$1 text=$2 expected=$3 actual
+  actual=$(grep -Fc -- "$text" "$file" || true)
+  [ "$actual" -eq "$expected" ] || {
+    printf 'expected %s occurrences of %s in %s, found %s\n' "$expected" "$text" "$file" "$actual" >&2
+    exit 1
+  }
+}
+
 assert_contains "$CI" 'branches: [aiwelink-dev, main]'
 assert_contains "$CI" 'cancel-in-progress: true'
 assert_contains "$CI" 'ci-gate:'
@@ -38,6 +49,22 @@ assert_contains "$CI" 'type=sha,prefix=main-,format=short,enable='
 assert_not_contains "$CI" 'type=raw,value=${{ steps.version.outputs.version }}'
 assert_not_contains "$SECURITY" "node-version: '20'"
 assert_contains "$SECURITY" "node-version: '24'"
+assert_contains "$CI" 'trivyignores: .trivyignore.yaml'
+assert_contains "$SECURITY" 'trivyignores: .trivyignore.yaml'
+assert_count "$TRIVY_IGNORE" 'CVE-2026-34040' 1
+assert_count "$TRIVY_IGNORE" 'CVE-2023-30533' 1
+assert_count "$TRIVY_IGNORE" 'CVE-2024-22363' 1
+assert_count "$TRIVY_IGNORE" 'frontend/pnpm-lock.yaml' 2
+assert_count "$TRIVY_IGNORE" 'backend/go.mod' 1
+assert_count "$TRIVY_IGNORE" '- "Dockerfile"' 1
+assert_count "$TRIVY_IGNORE" 'Dockerfile.goreleaser' 1
+assert_count "$TRIVY_IGNORE" 'deploy/Dockerfile' 1
+assert_count "$TRIVY_IGNORE" 'AVD-DS-0002' 1
+assert_count "$TRIVY_IGNORE" 'expired_at: 2026-09-11' 1
+assert_count "$TRIVY_IGNORE" 'expired_at: 2026-10-06' 2
+assert_count "$TRIVY_IGNORE" 'expired_at: 2026-11-11' 1
+assert_not_contains "$TRIVY_IGNORE" 'backend/Dockerfile'
+assert_contains "$BACKEND_DOCKERFILE" 'USER sub2api'
 assert_contains "$RELEASE" 'Verify release commit belongs to main'
 assert_contains "$RELEASE" 'Verify successful ci-gate for release commit'
 assert_contains "$RELEASE" 'Scan AIWeLink release image'
