@@ -38,7 +38,6 @@ assert_count() {
     exit 1
   }
 }
-
 assert_contains "$CI" 'branches: [aiwelink-dev, main]'
 assert_contains "$CI" 'cancel-in-progress: true'
 assert_contains "$CI" 'ci-gate:'
