@@ -14,6 +14,7 @@ func TestLoadGrowthRegistrationDefaults(t *testing.T) {
 
 	require.False(t, cfg.GrowthRegistration.Enabled)
 	require.Equal(t, "http://127.0.0.1:8081/internal/growth/registrations/bind", cfg.GrowthRegistration.Endpoint)
+	require.Equal(t, "https://aiwelink.cc/r", cfg.GrowthRegistration.ReferralBaseURL)
 	require.Equal(t, "aiwelink", cfg.GrowthRegistration.SiteID)
 	require.Empty(t, cfg.GrowthRegistration.ServiceCredential)
 	require.Empty(t, cfg.GrowthRegistration.OutboxEncryptionKey)
@@ -26,6 +27,7 @@ func TestLoadGrowthRegistrationFromEnvironment(t *testing.T) {
 	resetViperWithJWTSecret(t)
 	t.Setenv("GROWTH_REGISTRATION_ENABLED", "true")
 	t.Setenv("GROWTH_REGISTRATION_ENDPOINT", "https://growth.example.com/internal/growth/registrations/bind")
+	t.Setenv("GROWTH_REGISTRATION_REFERRAL_BASE_URL", "https://traffic.example.com/r")
 	t.Setenv("GROWTH_REGISTRATION_SITE_ID", "sub2-test")
 	t.Setenv("GROWTH_REGISTRATION_SERVICE_CREDENTIAL", "service-secret")
 	t.Setenv("GROWTH_REGISTRATION_OUTBOX_ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
@@ -38,10 +40,22 @@ func TestLoadGrowthRegistrationFromEnvironment(t *testing.T) {
 
 	require.True(t, cfg.GrowthRegistration.Enabled)
 	require.Equal(t, "https://growth.example.com/internal/growth/registrations/bind", cfg.GrowthRegistration.Endpoint)
+	require.Equal(t, "https://traffic.example.com/r", cfg.GrowthRegistration.ReferralBaseURL)
 	require.Equal(t, "sub2-test", cfg.GrowthRegistration.SiteID)
 	require.Equal(t, "service-secret", cfg.GrowthRegistration.ServiceCredential)
 	require.Equal(t, "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", cfg.GrowthRegistration.OutboxEncryptionKey)
 	require.Equal(t, "growth_session", cfg.GrowthRegistration.CookieName)
 	require.Equal(t, 3, cfg.GrowthRegistration.ConnectTimeoutSeconds)
 	require.Equal(t, 7, cfg.GrowthRegistration.ReadTimeoutSeconds)
+}
+
+func TestLoadGrowthRegistrationRejectsInsecureReferralBaseURL(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("GROWTH_REGISTRATION_ENABLED", "true")
+	t.Setenv("GROWTH_REGISTRATION_REFERRAL_BASE_URL", "http://aiwelink.cc/r")
+
+	_, err := Load()
+	require.Error(t, err)
+	require.ErrorContains(t, err, "growth_registration.referral_base_url")
+	require.ErrorContains(t, err, "https")
 }
