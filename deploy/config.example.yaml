@@ -89,6 +89,20 @@ webauthn:
   rp_origins: []
 
 # =============================================================================
+# Growth registration attribution (optional; disabled by default)
+# =============================================================================
+growth_registration:
+  enabled: false
+  endpoint: "http://traffic:8081/internal/growth/registrations/bind"
+  referral_base_url: "https://aiwelink.cc/r"
+  site_id: "aiwelink"
+  service_credential: ""
+  outbox_encryption_key: ""
+  cookie_name: "awl_growth_sid"
+  connect_timeout_seconds: 2
+  read_timeout_seconds: 5
+
+# =============================================================================
 # Run Mode Configuration
 # 运行模式配置
 # =============================================================================
