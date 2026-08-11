@@ -2,10 +2,17 @@ name: CI
 
 on:
   push:
+    branches: [aiwelink-dev, main]
   pull_request:
+    branches: [aiwelink-dev, main]
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   shell:
@@ -27,7 +34,7 @@ jobs:
       - name: Check AIWeLink growth deployment
         run: /bin/sh deploy/tests/aiwelink-growth-deployment-test.sh
 
-  test:
+  unit-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -37,17 +44,39 @@ jobs:
           check-latest: false
           cache: true
           cache-dependency-path: backend/go.sum
-      - name: Verify Go version
-        run: |
-          go version | grep -q 'go1.26.5'
       - name: Unit tests
         working-directory: backend
         run: make test-unit
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
       - name: Integration tests
         working-directory: backend
         run: make test-integration
 
-  frontend:
+  growth-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          check-latest: false
+          cache: true
+          cache-dependency-path: backend/go.sum
+      - name: Growth registration contract
+        working-directory: backend
+        run: make test-growth-contract
+
+  frontend-checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -58,13 +87,33 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'pnpm'
           cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
-      - name: Frontend typecheck and critical vitest
+      - name: Frontend lint, typecheck, and production build
+        run: make test-frontend-checks
+
+  frontend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Complete frontend Vitest suite
         run: make test-frontend
 
   golangci-lint:
@@ -77,9 +126,6 @@ jobs:
           check-latest: false
           cache: true
           cache-dependency-path: backend/go.sum
-      - name: Verify Go version
-        run: |
-          go version | grep -q 'go1.26.5'
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
