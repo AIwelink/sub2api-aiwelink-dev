@@ -40,7 +40,7 @@ func TestGrowthReferralFallsBackForInvalidCode(t *testing.T) {
 	r.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusFound, rec.Code)
-	require.Equal(t, "/register", rec.Header().Get("Location"))
+	require.Equal(t, "/", rec.Header().Get("Location"))
 	require.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
 }
 
@@ -52,7 +52,7 @@ func TestGrowthReferralFallsBackWhenDisabled(t *testing.T) {
 	r.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusFound, rec.Code)
-	require.Equal(t, "/register", rec.Header().Get("Location"))
+	require.Equal(t, "/", rec.Header().Get("Location"))
 }
 
 func TestGrowthReferralDoesNotRegisterNonGetMethods(t *testing.T) {

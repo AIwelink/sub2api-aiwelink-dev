@@ -18,13 +18,13 @@ func RegisterGrowthReferralRoutes(r *gin.Engine, cfg config.GrowthRegistrationCo
 	r.GET("/r/:code", func(c *gin.Context) {
 		c.Header("Cache-Control", "no-store")
 		if !cfg.Enabled {
-			c.Redirect(http.StatusFound, "/register")
+			c.Redirect(http.StatusFound, "/")
 			return
 		}
 
 		code := strings.ToLower(c.Param("code"))
 		if !growthReferralCodePattern.MatchString(code) {
-			c.Redirect(http.StatusFound, "/register")
+			c.Redirect(http.StatusFound, "/")
 			return
 		}
 
@@ -32,7 +32,7 @@ func RegisterGrowthReferralRoutes(r *gin.Engine, cfg config.GrowthRegistrationCo
 		if err != nil || base.Scheme != "https" || base.Host == "" ||
 			base.User != nil || base.RawQuery != "" || base.Fragment != "" ||
 			base.Path != "/r" || base.RawPath != "" {
-			c.Redirect(http.StatusFound, "/register")
+			c.Redirect(http.StatusFound, "/")
 			return
 		}
 		base.Path += "/" + code
