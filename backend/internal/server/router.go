@@ -69,6 +69,7 @@ func SetupRouter(
 		return nil
 	}))
 	r.Use(middleware2.ServerTiming(cfg.Server.EnableServerTiming))
+	routes.RegisterGrowthReferralRoutes(r, cfg.GrowthRegistration)
 
 	// Serve embedded frontend with settings injection if available
 	if web.HasEmbeddedFrontend() {
