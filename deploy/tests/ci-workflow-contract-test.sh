@@ -5,6 +5,8 @@ ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 CI="$ROOT_DIR/.github/workflows/backend-ci.yml"
 SECURITY="$ROOT_DIR/.github/workflows/security-scan.yml"
 RELEASE="$ROOT_DIR/.github/workflows/release.yml"
+GROWTH_CANARY="$ROOT_DIR/.github/workflows/growth-public-canary.yml"
+GROWTH_CANARY_SCRIPT="$ROOT_DIR/deploy/tests/growth-public-canary.sh"
 MAKEFILE="$ROOT_DIR/Makefile"
 
 assert_contains() {
@@ -40,6 +42,16 @@ assert_contains "$RELEASE" 'Verify release commit belongs to main'
 assert_contains "$RELEASE" 'Verify successful ci-gate for release commit'
 assert_contains "$RELEASE" 'Scan AIWeLink release image'
 assert_not_contains "$RELEASE" 'docker.aiwelink.cc/sub2api-aiwelink-dev:latest'
+assert_contains "$GROWTH_CANARY" "cron: '*/30 * * * *'"
+assert_contains "$GROWTH_CANARY" 'workflow_dispatch:'
+assert_contains "$GROWTH_CANARY" 'contents: read'
+assert_contains "$GROWTH_CANARY" 'timeout-minutes: 5'
+assert_contains "$GROWTH_CANARY" 'cancel-in-progress: true'
+assert_contains "$GROWTH_CANARY" 'GROWTH_CANARY_BASE_URL: https://api.aiwelink.cc'
+assert_contains "$GROWTH_CANARY" 'GROWTH_CANARY_REFERRAL_CODE: ${{ secrets.GROWTH_CANARY_REFERRAL_CODE }}'
+assert_contains "$GROWTH_CANARY" 'bash deploy/tests/growth-public-canary.sh'
+assert_contains "$GROWTH_CANARY_SCRIPT" '--self-test'
+assert_contains "$GROWTH_CANARY_SCRIPT" '^[a-hj-km-np-z2-9]{8}$'
 assert_contains "$MAKEFILE" 'pnpm --dir frontend run test:run'
 assert_contains "$MAKEFILE" 'pnpm --dir frontend run build'
 assert_not_contains "$MAKEFILE" 'FRONTEND_CRITICAL_VITEST'
