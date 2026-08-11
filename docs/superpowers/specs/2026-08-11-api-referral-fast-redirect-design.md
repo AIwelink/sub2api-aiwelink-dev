@@ -1,7 +1,7 @@
 # API 域推广入口快速跳转设计
 
 > 日期：2026-08-11
-> 状态：已确认设计，待实施
+> 状态：已实施，待合并/部署
 > 影响仓库：`AIwelink/sub2api-aiwelink-dev`、`AIwelink/traffic-analysis`
 
 ## 1. 背景
@@ -58,7 +58,7 @@ GET https://api.aiwelink.cc/r/{code}
   -> Worker 调用 Traffic 注册绑定接口
 ```
 
-整个流程只有后端重定向和 Traffic 写入，不等待前端脚本，也不请求主页 HTML、JavaScript、CSS 或图片资源。
+中间两次归因跳转只执行后端重定向和 Traffic 写入，不等待前端脚本，也不加载 `aiwelink.cc` 品牌主页资源。最终 `api.aiwelink.cc` 首页按正常流程加载 HTML、JavaScript、CSS 和图片，以播放现有 `HomepageIntro` 入场动画。
 
 ## 4. Sub2API 设计
 
