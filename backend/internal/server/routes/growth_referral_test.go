@@ -40,7 +40,7 @@ func TestGrowthReferralFallsBackForInvalidCode(t *testing.T) {
 	r.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusFound, rec.Code)
-	require.Equal(t, "/register", rec.Header().Get("Location"))
+	require.Equal(t, "/", rec.Header().Get("Location"))
 	require.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
 }
 
@@ -52,7 +52,24 @@ func TestGrowthReferralFallsBackWhenDisabled(t *testing.T) {
 	r.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusFound, rec.Code)
-	require.Equal(t, "/register", rec.Header().Get("Location"))
+	require.Equal(t, "/", rec.Header().Get("Location"))
+}
+
+func TestGrowthReferralFallsBackForInvalidReferralBaseURL(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	RegisterGrowthReferralRoutes(r, config.GrowthRegistrationConfig{
+		Enabled:         true,
+		ReferralBaseURL: "https://aiwelink.cc/r?next=https://evil.example",
+	})
+	req := httptest.NewRequest(http.MethodGet, "/r/abcdefgh", nil)
+	rec := httptest.NewRecorder()
+
+	r.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusFound, rec.Code)
+	require.Equal(t, "/", rec.Header().Get("Location"))
+	require.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
 }
 
 func TestGrowthReferralDoesNotRegisterNonGetMethods(t *testing.T) {
