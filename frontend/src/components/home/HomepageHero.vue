@@ -37,7 +37,7 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-const destination = computed(() => props.authenticated ? props.dashboardPath : '/register')
+const destination = computed(() => props.authenticated ? props.dashboardPath : '/login')
 </script>
 
 <style scoped>
@@ -76,7 +76,7 @@ h1 {
 .hero-api { color: var(--home-accent); transition: none; }
 
 .hero-description {
-  max-width: 620px;
+  max-width: 700px;
   margin: 24px auto 0;
   color: var(--home-muted);
   font-size: 16px;

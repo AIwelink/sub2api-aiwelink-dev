@@ -89,6 +89,25 @@ webauthn:
   rp_origins: []
 
 # =============================================================================
+# Growth Registration Configuration
+# Growth registration attribution configuration
+# =============================================================================
+# Opt-in delivery of registration attribution events to the Traffic service.
+# Disabled by default; configure credentials and encryption key before enabling.
+growth_registration:
+  enabled: false
+  endpoint: "http://traffic:8081/internal/growth/registrations/bind"
+  # Public browser entry handled by Traffic; must be HTTPS with exact /r path.
+  referral_base_url: "https://aiwelink.cc/r"
+  site_id: "aiwelink"
+  service_credential: ""
+  # 64 hexadecimal characters (32 bytes); generate with: openssl rand -hex 32
+  outbox_encryption_key: ""
+  cookie_name: "awl_growth_sid"
+  connect_timeout_seconds: 2
+  read_timeout_seconds: 5
+
+# =============================================================================
 # Run Mode Configuration
 # 运行模式配置
 # =============================================================================

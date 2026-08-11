@@ -32,6 +32,7 @@ const POINTER_DISTANCE = 150
 const LIGHT_AMBER = '198, 121, 20'
 const DARK_GOLD = '255, 198, 72'
 const WARM_ROSE = '239, 63, 114'
+const LIGHT_VISIBILITY_MULTIPLIER = 1.3
 const CLUSTER_CHECK_INTERVAL = 90
 const CLUSTER_RADIUS_RATIO = .16
 const CLUSTER_PARTICLE_RATIO = .35
@@ -222,6 +223,10 @@ function connectionColor(isDark: boolean, rose: boolean) {
   return rose ? WARM_ROSE : LIGHT_AMBER
 }
 
+function themeAlpha(alpha: number, isDark: boolean, maximum = 1) {
+  return Math.min(maximum, isDark ? alpha : alpha * LIGHT_VISIBILITY_MULTIPLIER)
+}
+
 function drawConnections(isDark: boolean) {
   if (!context) return
 
@@ -241,7 +246,7 @@ function drawConnections(isDark: boolean) {
       context.moveTo(first.x, first.y)
       context.lineTo(second.x, second.y)
       context.lineWidth = .9
-      context.strokeStyle = `rgba(${color}, ${baseAlpha})`
+      context.strokeStyle = `rgba(${color}, ${themeAlpha(baseAlpha, isDark)})`
       context.stroke()
     }
   }
@@ -254,7 +259,7 @@ function drawPointerConnections(isDark: boolean) {
     const distance = Math.hypot(particle.x - pointer.x, particle.y - pointer.y)
     if (distance > POINTER_DISTANCE) return
 
-    const alpha = (1 - distance / POINTER_DISTANCE) * .4
+    const alpha = themeAlpha((1 - distance / POINTER_DISTANCE) * .4, isDark)
     context!.beginPath()
     context!.moveTo(particle.x, particle.y)
     context!.lineTo(pointer.x, pointer.y)
@@ -268,12 +273,12 @@ function drawParticles(isDark: boolean) {
   if (!context) return
 
   particles.forEach((particle) => {
-    const pointOpacity = Math.min(.64, particle.opacity + (isDark ? .16 : 0))
+    const basePointOpacity = particle.opacity + (isDark ? .16 : 0)
     context!.beginPath()
     context!.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2)
     context!.fillStyle = particle.rose
-      ? `rgba(${WARM_ROSE}, ${Math.min(.72, pointOpacity + .08)})`
-      : `rgba(${isDark ? DARK_GOLD : LIGHT_AMBER}, ${pointOpacity})`
+      ? `rgba(${WARM_ROSE}, ${themeAlpha(basePointOpacity + .08, isDark, .72)})`
+      : `rgba(${isDark ? DARK_GOLD : LIGHT_AMBER}, ${themeAlpha(basePointOpacity, isDark, .64)})`
     context!.fill()
   })
 }

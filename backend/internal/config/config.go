@@ -63,6 +63,7 @@ const DefaultUpstreamResponseReadMaxBytes int64 = 128 * 1024 * 1024
 
 type Config struct {
 	Server                  ServerConfig                  `mapstructure:"server"`
+	GrowthRegistration      GrowthRegistrationConfig      `mapstructure:"growth_registration"`
 	Log                     LogConfig                     `mapstructure:"log"`
 	CORS                    CORSConfig                    `mapstructure:"cors"`
 	Security                SecurityConfig                `mapstructure:"security"`
@@ -99,6 +100,21 @@ type Config struct {
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
 	BatchImage              BatchImageConfig              `mapstructure:"batch_image"`
 	ImageStorage            ImageStorageConfig            `mapstructure:"image_storage"`
+}
+
+// GrowthRegistrationConfig controls the opt-in registration attribution
+// delivery to the Traffic Analysis service. It is intentionally independent
+// from the login growth integration and from Sub2's native affiliate flow.
+type GrowthRegistrationConfig struct {
+	Enabled               bool   `mapstructure:"enabled"`
+	Endpoint              string `mapstructure:"endpoint"`
+	ReferralBaseURL       string `mapstructure:"referral_base_url"`
+	SiteID                string `mapstructure:"site_id"`
+	ServiceCredential     string `mapstructure:"service_credential"`
+	OutboxEncryptionKey   string `mapstructure:"outbox_encryption_key"`
+	CookieName            string `mapstructure:"cookie_name"`
+	ConnectTimeoutSeconds int    `mapstructure:"connect_timeout_seconds"`
+	ReadTimeoutSeconds    int    `mapstructure:"read_timeout_seconds"`
 }
 
 type LogConfig struct {
@@ -1661,6 +1677,24 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	if err := viper.BindEnv("server.enable_server_timing", "ENABLE_SERVER_TIMING"); err != nil {
 		return nil, fmt.Errorf("bind ENABLE_SERVER_TIMING: %w", err)
 	}
+	for _, binding := range []struct {
+		key string
+		env string
+	}{
+		{key: "growth_registration.enabled", env: "GROWTH_REGISTRATION_ENABLED"},
+		{key: "growth_registration.endpoint", env: "GROWTH_REGISTRATION_ENDPOINT"},
+		{key: "growth_registration.referral_base_url", env: "GROWTH_REGISTRATION_REFERRAL_BASE_URL"},
+		{key: "growth_registration.site_id", env: "GROWTH_REGISTRATION_SITE_ID"},
+		{key: "growth_registration.service_credential", env: "GROWTH_REGISTRATION_SERVICE_CREDENTIAL"},
+		{key: "growth_registration.outbox_encryption_key", env: "GROWTH_REGISTRATION_OUTBOX_ENCRYPTION_KEY"},
+		{key: "growth_registration.cookie_name", env: "GROWTH_REGISTRATION_COOKIE_NAME"},
+		{key: "growth_registration.connect_timeout_seconds", env: "GROWTH_REGISTRATION_CONNECT_TIMEOUT_SECONDS"},
+		{key: "growth_registration.read_timeout_seconds", env: "GROWTH_REGISTRATION_READ_TIMEOUT_SECONDS"},
+	} {
+		if err := viper.BindEnv(binding.key, binding.env); err != nil {
+			return nil, fmt.Errorf("bind %s: %w", binding.env, err)
+		}
+	}
 
 	// 默认值
 	setDefaults()
@@ -1719,6 +1753,12 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	cfg.LinuxDo.UserInfoEmailPath = strings.TrimSpace(cfg.LinuxDo.UserInfoEmailPath)
 	cfg.LinuxDo.UserInfoIDPath = strings.TrimSpace(cfg.LinuxDo.UserInfoIDPath)
 	cfg.LinuxDo.UserInfoUsernamePath = strings.TrimSpace(cfg.LinuxDo.UserInfoUsernamePath)
+	cfg.GrowthRegistration.Endpoint = strings.TrimSpace(cfg.GrowthRegistration.Endpoint)
+	cfg.GrowthRegistration.ReferralBaseURL = strings.TrimSpace(cfg.GrowthRegistration.ReferralBaseURL)
+	cfg.GrowthRegistration.SiteID = strings.TrimSpace(cfg.GrowthRegistration.SiteID)
+	cfg.GrowthRegistration.ServiceCredential = strings.TrimSpace(cfg.GrowthRegistration.ServiceCredential)
+	cfg.GrowthRegistration.OutboxEncryptionKey = strings.TrimSpace(cfg.GrowthRegistration.OutboxEncryptionKey)
+	cfg.GrowthRegistration.CookieName = strings.TrimSpace(cfg.GrowthRegistration.CookieName)
 	applyLegacyWeChatConnectEnvCompatibility(&cfg.WeChat)
 	normalizeWeChatConnectConfig(&cfg.WeChat)
 	cfg.OIDC.ProviderName = strings.TrimSpace(cfg.OIDC.ProviderName)
@@ -1937,6 +1977,17 @@ func setDefaults() {
 
 	// Turnstile
 	viper.SetDefault("turnstile.required", false)
+
+	// Registration growth attribution (opt-in; credentials/key intentionally empty)
+	viper.SetDefault("growth_registration.enabled", false)
+	viper.SetDefault("growth_registration.endpoint", "http://127.0.0.1:8081/internal/growth/registrations/bind")
+	viper.SetDefault("growth_registration.referral_base_url", "https://aiwelink.cc/r")
+	viper.SetDefault("growth_registration.site_id", "aiwelink")
+	viper.SetDefault("growth_registration.service_credential", "")
+	viper.SetDefault("growth_registration.outbox_encryption_key", "")
+	viper.SetDefault("growth_registration.cookie_name", "awl_growth_sid")
+	viper.SetDefault("growth_registration.connect_timeout_seconds", 2)
+	viper.SetDefault("growth_registration.read_timeout_seconds", 5)
 
 	// LinuxDo Connect OAuth 登录
 	viper.SetDefault("linuxdo_connect.enabled", false)
@@ -2476,6 +2527,11 @@ func setEnvReachableDefaults() {
 }
 
 func (c *Config) Validate() error {
+	if c.GrowthRegistration.Enabled {
+		if err := validateGrowthRegistrationReferralBaseURL(c.GrowthRegistration.ReferralBaseURL); err != nil {
+			return fmt.Errorf("growth_registration.referral_base_url: %w", err)
+		}
+	}
 	forwardedClientIPHeaders, err := NormalizeForwardedClientIPHeaders(c.Security.ForwardedClientIPHeaders)
 	if err != nil {
 		return fmt.Errorf("security.forwarded_client_ip_headers: %w", err)
@@ -3499,6 +3555,29 @@ func (c *Config) Validate() error {
 	}
 	if err := ValidateDingTalkConfig(c.DingTalk); err != nil {
 		return fmt.Errorf("dingtalk_connect: %w", err)
+	}
+	return nil
+}
+
+func validateGrowthRegistrationReferralBaseURL(raw string) error {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return fmt.Errorf("must be a valid URL: %w", err)
+	}
+	if parsed.Scheme != "https" {
+		return fmt.Errorf("must use https")
+	}
+	if parsed.Host == "" {
+		return fmt.Errorf("must include a host")
+	}
+	if parsed.User != nil {
+		return fmt.Errorf("must not include userinfo")
+	}
+	if parsed.RawQuery != "" || parsed.Fragment != "" {
+		return fmt.Errorf("must not include query or fragment")
+	}
+	if parsed.Path != "/r" || parsed.RawPath != "" {
+		return fmt.Errorf("path must be exactly /r")
 	}
 	return nil
 }

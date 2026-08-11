@@ -77,6 +77,7 @@ type AuthService struct {
 	emailQueueService     *EmailQueueService
 	promoService          *PromoService
 	affiliateService      *AffiliateService
+	growthRegistration    GrowthRegistrationRecorder
 	defaultSubAssigner    DefaultSubscriptionAssigner
 	userPlatformQuotaRepo UserPlatformQuotaRepository
 }
@@ -130,6 +131,13 @@ func (s *AuthService) EntClient() *dbent.Client {
 		return nil
 	}
 	return s.entClient
+}
+
+func (s *AuthService) SetGrowthRegistrationRecorder(recorder GrowthRegistrationRecorder) {
+	if s == nil {
+		return
+	}
+	s.growthRegistration = recorder
 }
 
 // Register 用户注册，返回token和用户
@@ -272,6 +280,11 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 	token, err := s.GenerateToken(ctx, user)
 	if err != nil {
 		return "", nil, fmt.Errorf("generate token: %w", err)
+	}
+	if s.growthRegistration != nil {
+		if err := s.growthRegistration.RecordSuccessfulRegistration(ctx, user); err != nil {
+			logger.LegacyPrintf("service.auth", "[Auth] Failed to record growth registration for user %d: %v", user.ID, err)
+		}
 	}
 
 	return token, user, nil

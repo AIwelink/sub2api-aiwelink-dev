@@ -674,10 +674,45 @@ func ProvideAPIKeyService(
 	return svc
 }
 
+func ProvideAuthService(
+	entClient *dbent.Client,
+	userRepo UserRepository,
+	redeemRepo RedeemCodeRepository,
+	refreshTokenCache RefreshTokenCache,
+	cfg *config.Config,
+	settingService *SettingService,
+	emailService *EmailService,
+	turnstileService *TurnstileService,
+	emailQueueService *EmailQueueService,
+	promoService *PromoService,
+	defaultSubAssigner DefaultSubscriptionAssigner,
+	affiliateService *AffiliateService,
+	userPlatformQuotaRepo UserPlatformQuotaRepository,
+	growthRegistration GrowthRegistrationRecorder,
+) *AuthService {
+	service := NewAuthService(
+		entClient,
+		userRepo,
+		redeemRepo,
+		refreshTokenCache,
+		cfg,
+		settingService,
+		emailService,
+		turnstileService,
+		emailQueueService,
+		promoService,
+		defaultSubAssigner,
+		affiliateService,
+		userPlatformQuotaRepo,
+	)
+	service.SetGrowthRegistrationRecorder(growthRegistration)
+	return service
+}
+
 // ProviderSet is the Wire provider set for all services
 var ProviderSet = wire.NewSet(
 	// Core services
-	NewAuthService,
+	ProvideAuthService,
 	NewPasskeyService,
 	NewUserService,
 	ProvideAPIKeyService,
@@ -705,6 +740,8 @@ var ProviderSet = wire.NewSet(
 	NewBatchImageDownloadService,
 	ProvideBatchImageCleanupService,
 	ProvideBatchImageWorkerRuntime,
+	ProvideGrowthRegistrationRuntime,
+	wire.Bind(new(GrowthRegistrationRecorder), new(*GrowthRegistrationRuntime)),
 	wire.Bind(new(AccountRuntimeBlocker), new(*OpenAIGatewayService)),
 	NewOAuthService,
 	ProvideOpenAIOAuthService,
