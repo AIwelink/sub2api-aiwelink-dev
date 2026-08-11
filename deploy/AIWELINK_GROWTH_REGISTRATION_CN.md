@@ -14,6 +14,10 @@
 
 Traffic 在用户访问 `https://aiwelink.cc/r/{code}` 后设置域为 `.aiwelink.cc`、名称为 `awl_growth_sid` 的 Cookie。端到端测试时，注册页面也必须位于 `.aiwelink.cc` 下；直接访问服务器 IP 或 `IP:8080` 时，浏览器不会发送这个域 Cookie，因而无法完成绑定。
 
+API 域同时提供后端推广入口 `https://api.aiwelink.cc/r/{code}`。Sub2API 只校验推广码格式并立即返回 `302` 到 `https://aiwelink.cc/r/{code}?entry=api`；Traffic 记录归因、设置父域 Cookie 后，再直接 `302` 到 `https://api.aiwelink.cc/register`。该链路不加载主页 UI，不查询 Sub2API 数据库，也不从 Sub2API 同步请求 Traffic。
+
+Traffic 的 `8300` 端口继续只监听 loopback 或私网，不需要对公网开放，也不需要在每个分布式 Sub2API 节点反代 `8300`。浏览器访问的是现有公网 HTTPS 域名 `aiwelink.cc/r/*`。
+
 推广注册只处理邮件注册接口 `POST /api/v1/auth/register`。`/internal/growth/logins` 和 `GROWTH_LOGIN_*` 属于旧的登录事件集成，不能启用推广注册绑定。
 
 ## 准备 `.env`
@@ -82,6 +86,7 @@ GROWTH_REGISTRATION_OUTBOX_ENCRYPTION_KEY=<第三条输出>
 ```dotenv
 GROWTH_REGISTRATION_ENABLED=true
 GROWTH_REGISTRATION_ENDPOINT=https://aiwelink.cc/internal/growth/registrations/bind
+GROWTH_REGISTRATION_REFERRAL_BASE_URL=https://aiwelink.cc/r
 GROWTH_REGISTRATION_SITE_ID=aiwelink
 GROWTH_REGISTRATION_SERVICE_CREDENTIAL=<Traffic中aiwelink对应的凭据>
 GROWTH_REGISTRATION_OUTBOX_ENCRYPTION_KEY=<共用的64位十六进制outbox密钥>
@@ -125,6 +130,7 @@ docker exec sub2api-8080 sh -lc '
 for key in \
   GROWTH_REGISTRATION_ENABLED \
   GROWTH_REGISTRATION_ENDPOINT \
+  GROWTH_REGISTRATION_REFERRAL_BASE_URL \
   GROWTH_REGISTRATION_SITE_ID \
   GROWTH_REGISTRATION_COOKIE_NAME \
   GROWTH_REGISTRATION_CONNECT_TIMEOUT_SECONDS \
@@ -159,12 +165,14 @@ docker exec sub2api-8080 sh -lc \
 ## 端到端验收
 
 1. 清理测试浏览器中现有的 `awl_growth_sid` Cookie。
-2. 访问一个真实推广链接：`https://aiwelink.cc/r/{code}`。
-3. 确认跳转后的浏览器会话中存在域为 `.aiwelink.cc` 的 `awl_growth_sid`。
-4. 使用同一个浏览器会话，打开 `.aiwelink.cc` 下的开发/灰度注册域名。
+2. 访问一个真实 API 域推广链接：`https://api.aiwelink.cc/r/{code}`。
+3. 在网络面板确认第一跳为 `https://aiwelink.cc/r/{code}?entry=api`，第二跳为 `https://api.aiwelink.cc/register`，且未请求主页 HTML、JavaScript、CSS 或图片。
+4. 确认跳转后的浏览器会话中存在域为 `.aiwelink.cc` 的 `awl_growth_sid`。
 5. 使用一个从未注册过的新邮箱完成邮件注册，不使用 OAuth、Passkey 或其他登录入口。
 6. 在浏览器网络面板检查 `POST /api/v1/auth/register` 的请求头，确认 Cookie 中包含 `awl_growth_sid`。
 7. 在 Traffic 中确认该新 Sub2API 用户已经绑定到对应推广来源。
+
+发布时必须先部署支持 `entry=api` 和 `API_REGISTRATION_URL` 的 Traffic 版本，再部署包含 `/r/{code}` 的 Sub2API 版本。顺序反过来会让第一跳已带 `entry=api`，但旧 Traffic 仍回到主页。
 
 只通过 `http://服务器IP:8080` 打开注册页面不算有效验收，因为 `.aiwelink.cc` Cookie 不会发送给 IP 地址。
 
