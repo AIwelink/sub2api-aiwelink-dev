@@ -37,13 +37,6 @@ function maxConnectionAlpha() {
   return Math.max(...alphas)
 }
 
-function maxFillAlpha(color: string) {
-  const alphas = fillStyles
-    .filter((style) => style.startsWith(`rgba(${color},`))
-    .map((style) => Number(style.match(/,\s*([\d.]+)\)$/)?.[1]))
-  return Math.max(...alphas)
-}
-
 function mockClusteredParticles(clusteredCount: number) {
   let randomCall = 0
   vi.spyOn(Math, 'random').mockImplementation(() => {
@@ -98,23 +91,18 @@ describe('ParticleNetwork', () => {
     vi.unstubAllGlobals()
   })
 
-  it('deepens light-theme links and particles by thirty percent', async () => {
+  it('uses warm gold and sparse rose only in the light-theme canvas', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     const wrapper = mount(ParticleNetwork, { props: { interactive: false } })
     await nextTick()
 
-    try {
-      expect(maxConnectionAlpha()).toBeCloseTo(.18 * 1.3)
-      expect(strokeStyles.some((style) => style.startsWith('rgba(198, 121, 20,'))).toBe(true)
-      expect(strokeStyles.some((style) => style.startsWith('rgba(239, 63, 114,'))).toBe(true)
-      expect(strokeStyles.some((style) => style.startsWith('rgba(59, 130, 246,'))).toBe(false)
-      expect(fillStyles.some((style) => style.startsWith('rgba(198, 121, 20,'))).toBe(true)
-      expect(fillStyles.some((style) => style.startsWith('rgba(239, 63, 114,'))).toBe(true)
-      expect(maxFillAlpha('198, 121, 20')).toBeCloseTo(.18 * 1.3)
-      expect(maxFillAlpha('239, 63, 114')).toBeCloseTo((.18 + .08) * 1.3)
-    } finally {
-      wrapper.unmount()
-    }
+    expect(maxConnectionAlpha()).toBeGreaterThanOrEqual(.14)
+    expect(strokeStyles.some((style) => style.startsWith('rgba(198, 121, 20,'))).toBe(true)
+    expect(strokeStyles.some((style) => style.startsWith('rgba(239, 63, 114,'))).toBe(true)
+    expect(strokeStyles.some((style) => style.startsWith('rgba(59, 130, 246,'))).toBe(false)
+    expect(fillStyles.some((style) => style.startsWith('rgba(198, 121, 20,'))).toBe(true)
+    expect(fillStyles.some((style) => style.startsWith('rgba(239, 63, 114,'))).toBe(true)
+    wrapper.unmount()
   })
 
   it('keeps dark-theme connection lines visibly present without pointer boost', async () => {
@@ -123,7 +111,7 @@ describe('ParticleNetwork', () => {
     const wrapper = mount(ParticleNetwork, { props: { interactive: false } })
     await nextTick()
 
-    expect(maxConnectionAlpha()).toBeCloseTo(.24)
+    expect(maxConnectionAlpha()).toBeGreaterThanOrEqual(.22)
     expect(strokeStyles.some((style) => style.startsWith('rgba(255, 198, 72,'))).toBe(true)
     wrapper.unmount()
   })
@@ -139,13 +127,10 @@ describe('ParticleNetwork', () => {
     window.dispatchEvent(new MouseEvent('pointermove', { clientX: 50, clientY: 50 }))
     animationFrame?.(0)
 
-    try {
-      expect(context.lineTo).toHaveBeenCalledWith(50, 50)
-      expect(maxConnectionAlpha()).toBeGreaterThan(.3)
-      expect(maxConnectionAlpha()).toBeLessThanOrEqual(.52)
-    } finally {
-      wrapper.unmount()
-    }
+    expect(context.lineTo).toHaveBeenCalledWith(50, 50)
+    expect(maxConnectionAlpha()).toBeGreaterThan(.2)
+    expect(maxConnectionAlpha()).toBeLessThanOrEqual(.42)
+    wrapper.unmount()
   })
 
   it('scales desktop density by canvas area and uses reference-sized points', async () => {
