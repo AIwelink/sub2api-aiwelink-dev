@@ -1,17 +1,17 @@
 <template>
-  <div class="card p-4">
-    <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+  <div class="dashboard-section-chart min-w-0 p-4 md:p-5">
+    <h3 class="mb-4 text-xs font-semibold text-theme-text">
       {{ t('admin.dashboard.tokenUsageTrend') }}
     </h3>
-    <div v-if="loading" class="flex h-48 items-center justify-center">
+    <div v-if="loading" class="flex h-[220px] items-center justify-center">
       <LoadingSpinner />
     </div>
-    <div v-else-if="trendData.length > 0 && chartData" class="h-48">
+    <div v-else-if="trendData.length > 0 && chartData" class="h-[220px]">
       <Line :data="chartData" :options="lineOptions" />
     </div>
     <div
       v-else
-      class="flex h-48 items-center justify-center text-sm text-gray-500 dark:text-gray-400"
+      class="flex h-[220px] items-center justify-center text-xs text-theme-muted"
     >
       {{ t('admin.dashboard.noDataAvailable') }}
     </div>

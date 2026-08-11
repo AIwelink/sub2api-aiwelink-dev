@@ -15,6 +15,7 @@ const dashboardSources = [
   source('src/views/user/DashboardView.vue'),
   source('src/components/user/dashboard/UserDashboardStats.vue'),
   source('src/components/user/dashboard/UserDashboardCharts.vue'),
+  source('src/components/charts/TokenUsageTrend.vue'),
   source('src/components/user/dashboard/UserDashboardRecentUsage.vue'),
   source('src/components/user/dashboard/UserDashboardQuickActions.vue')
 ]
