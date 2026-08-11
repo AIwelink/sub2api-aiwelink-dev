@@ -26,10 +26,12 @@ describe('AIWeLink theme effects', () => {
     expect(shared).toMatch(/\.btn-primary:hover:not\(:disabled\)\s*\{\s*transform: none/)
   })
 
-  it('uses static localized glow on every selected navigation family', () => {
+  it('keeps glow out of workbench navigation while retaining legacy tab emphasis', () => {
     expect(shared).toContain('.sidebar-link-active')
+    expect(shared).toContain('.sidebar-link-active::before')
     expect(shared).toContain('.tab-active')
-    expect(shared).toContain('rgb(var(--color-primary-500) / 0.14)')
+    const sidebarActive = shared.match(/\.sidebar-link-active\s*\{[\s\S]*?\n {2}\}/)?.[0] ?? ''
+    expect(sidebarActive).not.toContain('box-shadow')
     expect(settings).toContain('rgb(var(--color-primary-500) / 0.14)')
     expect(channels).toContain('rgb(var(--color-primary-500) / 0.14)')
   })
