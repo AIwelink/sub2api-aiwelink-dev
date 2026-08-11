@@ -1,0 +1,45 @@
+# AIWeLink development/gray deployment. PostgreSQL and Redis are external.
+# Copy .env.aiwelink-dev.example to .env before running this file.
+
+name: ${COMPOSE_PROJECT_NAME:-sub2api-aiwelink-dev}
+
+services:
+  sub2api:
+    image: ${SUB2API_IMAGE:?SUB2API_IMAGE must use a published AIWeLink image tag}
+    pull_policy: always
+    container_name: ${CONTAINER_NAME:-sub2api-8080}
+    restart: unless-stopped
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    ulimits:
+      nofile:
+        soft: 100000
+        hard: 100000
+    ports:
+      - "${BIND_HOST:-0.0.0.0}:${SERVER_PORT:-8080}:8080"
+    volumes:
+      - sub2api_data:/app/data
+    env_file:
+      - ${SUB2API_ENV_FILE:-.env}
+    environment:
+      AUTO_SETUP: "true"
+      SERVER_HOST: "0.0.0.0"
+      SERVER_PORT: "8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "5", "-O", "/dev/null", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 240s
+    networks:
+      - 1panel-network
+
+volumes:
+  sub2api_data:
+    driver: local
+
+networks:
+  1panel-network:
+    external: true
+    name: ${ONEPANEL_NETWORK_NAME:-1panel-network}
