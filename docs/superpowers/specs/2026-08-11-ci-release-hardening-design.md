@@ -66,12 +66,12 @@ PR CI 不访问生产 Traffic，也不依赖公网可用性。`growth-contract` 
 
 ## 5. 真实灰度探测
 
-独立的定时与手动工作流探测 `https://api.aiwelink.cc` 和 Traffic 公网入口。该探测必须无副作用，不创建真实用户、不写注册绑定记录，也不输出 Cookie 或凭据。
+独立的定时与手动工作流探测 `https://api.aiwelink.cc` 和 Traffic 公网入口。探测不创建真实用户、不写注册绑定或返佣记录，也不输出 Cookie 或凭据。`/r/{code}` 使用专用 canary 推广码，允许并预期写入一条可识别的 canary 点击记录；该记录不得混入普通推广效果统计。
 
 允许验证：
 
 - `/health` 可达；
-- 专用测试推广码的 `/r/{code}` 返回预期状态、Location 和安全 Cookie 属性；
+- 专用 canary 推广码的 `/r/{code}` 返回预期状态、Location 和安全 Cookie 属性；
 - Traffic 公共健康/契约端点可达；
 - 响应延迟在明确的超时范围内。
 
@@ -131,7 +131,7 @@ PR CI 不访问生产 Traffic，也不依赖公网可用性。`growth-contract` 
 - Node.js 版本在 CI、Security、Release 与 Dockerfile 中一致；
 - 完整前端测试命令不再使用固定六文件白名单；
 - Fake Traffic 契约测试覆盖成功、超时、失败入队和重试；
-- 灰度探测没有注册或绑定写操作；
+- 灰度探测只产生专用 canary 点击，不产生注册、绑定或返佣写操作；
 - workflow YAML 可解析，shell 脚本通过语法检查；
 - Go 单元/集成测试、前端 lint/typecheck/test/build 全部通过；
 - Docker daemon 可用时执行本地镜像构建与扫描；不可用时由 PR Actions 提供最终容器验证证据。
