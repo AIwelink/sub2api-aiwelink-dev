@@ -1,0 +1,25 @@
+vulnerabilities:
+  - id: CVE-2026-34040
+    paths:
+      - "backend/go.mod"
+    statement: "Transitive testcontainers dependency used only by integration tests; the fixed Docker v29.3.1 module is not published as of 2026-08-11."
+    expired_at: 2026-09-11
+  - id: CVE-2023-30533
+    paths:
+      - "frontend/pnpm-lock.yaml"
+    statement: "Admin-only SheetJS export; dynamically imported and covered by the matching pnpm audit exception."
+    expired_at: 2026-10-06
+  - id: CVE-2024-22363
+    paths:
+      - "frontend/pnpm-lock.yaml"
+    statement: "Admin-only SheetJS export; dynamically imported and covered by the matching pnpm audit exception."
+    expired_at: 2026-10-06
+
+misconfigurations:
+  - id: AVD-DS-0002
+    paths:
+      - "Dockerfile"
+      - "Dockerfile.goreleaser"
+      - "deploy/Dockerfile"
+    statement: "The entrypoint starts as root only to repair mounted data ownership, then immediately execs the service through su-exec sub2api."
+    expired_at: 2026-11-11
