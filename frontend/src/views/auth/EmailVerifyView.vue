@@ -206,6 +206,11 @@ import {
   loadAffiliateReferralCode,
   oauthAffiliatePayload
 } from '@/utils/oauthAffiliate'
+import {
+  clearPendingRegistrationCaptchaProof,
+  clearPendingRegistrationData,
+  getPendingRegistrationData
+} from '@/utils/pendingRegistration'
 
 const { t, locale } = useI18n()
 
@@ -225,7 +230,7 @@ const verifyCode = ref<string>('')
 const countdown = ref<number>(0)
 let countdownTimer: ReturnType<typeof setInterval> | null = null
 
-// Registration data from sessionStorage
+// Sensitive registration data is kept in memory for this document session.
 type PendingAuthTokenField = 'pending_auth_token' | 'pending_oauth_token'
 type PendingAuthSessionSummary = {
   token: string
@@ -326,11 +331,9 @@ watch(validationToastMessage, (value, previousValue) => {
 onMounted(async () => {
   const activePendingSession = authStore.pendingAuthSession as PendingAuthSessionSummary | null
 
-  // Load registration data from sessionStorage
-  const registerDataStr = sessionStorage.getItem('register_data')
-  if (registerDataStr) {
+  const registerData = getPendingRegistrationData()
+  if (registerData) {
     try {
-      const registerData = JSON.parse(registerDataStr)
       email.value = registerData.email || ''
       password.value = registerData.password || ''
       initialTurnstileToken.value =
@@ -566,7 +569,7 @@ async function sendCode(): Promise<void> {
       ? getPendingOAuthSendCodeSessionResponse(response as PendingOAuthSendVerifyCodeResponse)
       : null
     if (pendingSendCodeSession) {
-      sessionStorage.removeItem('register_data')
+      clearPendingRegistrationData()
       persistPendingOAuthSession(
         pendingSendCodeSession.provider || pendingProvider.value,
         pendingSendCodeSession.redirect,
@@ -602,18 +605,7 @@ async function sendCode(): Promise<void> {
 }
 
 function clearStoredCaptchaProof(): void {
-  const registerDataStr = sessionStorage.getItem('register_data')
-  if (!registerDataStr) return
-
-  try {
-    const registerData = JSON.parse(registerDataStr) as Record<string, unknown>
-    delete registerData.turnstile_token
-    delete registerData.tencent_captcha_ticket
-    delete registerData.tencent_captcha_randstr
-    sessionStorage.setItem('register_data', JSON.stringify(registerData))
-  } catch {
-    // Invalid registration state is handled by the existing onMounted parser.
-  }
+  clearPendingRegistrationCaptchaProof()
 }
 
 // ==================== Handlers ====================
@@ -705,7 +697,7 @@ async function handleVerify(): Promise<void> {
         payload
       )
       if (isPendingOAuthSessionResponse(data)) {
-        sessionStorage.removeItem('register_data')
+        clearPendingRegistrationData()
         persistPendingOAuthSession(data.provider || pendingProvider.value, data.redirect)
         await router.push(resolvePendingOAuthCallbackRoute(data.provider || pendingProvider.value))
         return
@@ -736,7 +728,7 @@ async function handleVerify(): Promise<void> {
     }
 
     // Clear session data
-    sessionStorage.removeItem('register_data')
+    clearPendingRegistrationData()
     clearAllAffiliateReferralCodes()
 
     // Show success toast
@@ -760,7 +752,7 @@ async function handleVerify(): Promise<void> {
 
 function handleBack(): void {
   // Clear session data
-  sessionStorage.removeItem('register_data')
+  clearPendingRegistrationData()
 
   // Go back to registration
   router.push('/register')
