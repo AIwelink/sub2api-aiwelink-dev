@@ -61,7 +61,7 @@ func sanitizeOpenAIResponsesToolParameterTypes(body []byte) ([]byte, bool, error
 	// tools 与 input 在 body 里的先后顺序由客户端决定，收集顺序不保证单调。
 	sort.Slice(hits, func(i, j int) bool { return hits[i].offset < hits[j].offset })
 
-	sanitized := make([]byte, 0, len(body)+len(hits)*len(openAIResponsesToolSchemaFallbackType))
+	sanitized := make([]byte, 0, len(body))
 	cursor := 0
 	for _, hit := range hits {
 		// 收集阶段已逐个校验过区间，这里再挡一次重叠，保证拼接严格单调向前。
