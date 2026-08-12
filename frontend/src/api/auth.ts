@@ -5,6 +5,11 @@
 
 import { apiClient } from './client'
 import { refreshAuthTokens, type RefreshTokenResponse } from './tokenRefresh'
+import {
+  clearInMemoryRefreshToken,
+  getInMemoryRefreshToken,
+  setInMemoryRefreshToken
+} from './authSecrets'
 export type { RefreshTokenResponse } from './tokenRefresh'
 import type {
   LoginRequest,
@@ -76,10 +81,10 @@ export function setAuthToken(token: string): void {
 }
 
 /**
- * Store refresh token in localStorage
+ * Keep the rotating refresh token out of persistent browser storage.
  */
 export function setRefreshToken(token: string): void {
-  localStorage.setItem('refresh_token', token)
+  setInMemoryRefreshToken(token)
 }
 
 /**
@@ -99,10 +104,10 @@ export function getAuthToken(): string | null {
 }
 
 /**
- * Get refresh token from localStorage
+ * Get the refresh token for the current document session.
  */
 export function getRefreshToken(): string | null {
-  return localStorage.getItem('refresh_token')
+  return getInMemoryRefreshToken()
 }
 
 /**
@@ -117,7 +122,9 @@ export function getTokenExpiresAt(): number | null {
  * Clear authentication token from localStorage
  */
 export function clearAuthToken(): void {
+  clearInMemoryRefreshToken()
   localStorage.removeItem('auth_token')
+  // Remove refresh tokens left by older frontend versions.
   localStorage.removeItem('refresh_token')
   localStorage.removeItem('auth_user')
   localStorage.removeItem('token_expires_at')

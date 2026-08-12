@@ -89,7 +89,7 @@ const emit = defineEmits<{
 
 const { t, locale } = useI18n()
 
-const uid = Math.random().toString(36).slice(2, 10)
+const uid = globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 12)
 const buttonId = `aliyun-captcha-button-${uid}`
 const elementId = `aliyun-captcha-element-${uid}`
 

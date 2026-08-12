@@ -2,6 +2,10 @@ import { defineComponent, h } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import EmailVerifyView from '@/views/auth/EmailVerifyView.vue'
+import {
+  clearPendingRegistrationData,
+  getPendingRegistrationData
+} from '@/utils/pendingRegistration'
 
 const {
   pushMock,
@@ -121,6 +125,7 @@ describe('EmailVerifyView', () => {
     createTurnstileResetMock.mockReset()
     verifyActionMock.mockReset()
     authStoreState.pendingAuthSession = null
+    clearPendingRegistrationData()
     sessionStorage.clear()
     localStorage.clear()
 
@@ -883,10 +888,14 @@ describe('EmailVerifyView', () => {
       tencent_captcha_ticket: 'send-code-ticket',
       tencent_captcha_randstr: '@send-code-rand',
     }))
-    expect(JSON.parse(sessionStorage.getItem('register_data') || '{}')).toEqual({
+    expect(sessionStorage.getItem('register_data')).toBeNull()
+    const pendingRegistration = getPendingRegistrationData()
+    expect(pendingRegistration).toEqual(expect.objectContaining({
       email: 'normal@example.com',
       password: 'secret-456',
-    })
+    }))
+    expect(pendingRegistration).not.toHaveProperty('tencent_captcha_ticket')
+    expect(pendingRegistration).not.toHaveProperty('tencent_captcha_randstr')
 
     await wrapper.get('#code').setValue('654321')
     await wrapper.get('form').trigger('submit.prevent')
