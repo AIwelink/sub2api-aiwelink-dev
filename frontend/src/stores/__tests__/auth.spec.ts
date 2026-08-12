@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
+import {
+  clearInMemoryRefreshToken,
+  getInMemoryRefreshToken
+} from '@/api/authSecrets'
 
 // Mock authAPI
 const mockLogin = vi.fn()
@@ -55,6 +59,7 @@ describe('useAuthStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     localStorage.clear()
+    clearInMemoryRefreshToken()
     vi.useFakeTimers()
     vi.clearAllMocks()
   })
@@ -77,6 +82,8 @@ describe('useAuthStore', () => {
       expect(store.isAuthenticated).toBe(true)
       expect(localStorage.getItem('auth_token')).toBe('test-token-123')
       expect(localStorage.getItem('auth_user')).toBe(JSON.stringify(fakeUser))
+      expect(getInMemoryRefreshToken()).toBe('refresh-token-456')
+      expect(localStorage.getItem('refresh_token')).toBeNull()
     })
 
     it('登录失败时清除状态并抛出错误', async () => {
@@ -197,7 +204,7 @@ describe('useAuthStore', () => {
       expect(localStorage.getItem('auth_token')).toBeNull()
     })
 
-    it('恢复 refresh token 和过期时间', () => {
+    it('恢复访问令牌时不会从 localStorage 读取旧 refresh token', () => {
       const futureTs = String(Date.now() + 3600_000)
       localStorage.setItem('auth_token', 'saved-token')
       localStorage.setItem('auth_user', JSON.stringify(fakeUser))
@@ -210,6 +217,7 @@ describe('useAuthStore', () => {
       store.checkAuth()
 
       expect(store.isAuthenticated).toBe(true)
+      expect(getInMemoryRefreshToken()).toBeNull()
     })
 
     it('恢复持久化 pending auth session', () => {

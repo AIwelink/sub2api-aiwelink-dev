@@ -6,6 +6,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed, readonly } from 'vue'
 import { authAPI, isTotp2FARequired, passkeyAPI, type LoginResponse } from '@/api'
+import {
+  clearInMemoryRefreshToken,
+  getInMemoryRefreshToken,
+  setInMemoryRefreshToken
+} from '@/api/authSecrets'
 import type {
   User,
   LoginRequest,
@@ -16,7 +21,6 @@ import type {
 
 const AUTH_TOKEN_KEY = 'auth_token'
 const AUTH_USER_KEY = 'auth_user'
-const REFRESH_TOKEN_KEY = 'refresh_token'
 const TOKEN_EXPIRES_AT_KEY = 'token_expires_at' // 存储过期时间戳而非有效期
 const PENDING_AUTH_SESSION_KEY = 'pending_auth_session'
 const AUTO_REFRESH_INTERVAL = 60 * 1000 // 60 seconds for user data refresh
@@ -109,7 +113,7 @@ export const useAuthStore = defineStore('auth', () => {
   function checkAuth(): void {
     const savedToken = localStorage.getItem(AUTH_TOKEN_KEY)
     const savedUser = localStorage.getItem(AUTH_USER_KEY)
-    const savedRefreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
+    const savedRefreshToken = getInMemoryRefreshToken()
     const savedExpiresAt = localStorage.getItem(TOKEN_EXPIRES_AT_KEY)
     pendingAuthSession.value = getPersistedPendingAuthSession()
 
@@ -303,7 +307,7 @@ export const useAuthStore = defineStore('auth', () => {
     // Store refresh token if present
     if (response.refresh_token) {
       refreshTokenValue.value = response.refresh_token
-      localStorage.setItem(REFRESH_TOKEN_KEY, response.refresh_token)
+      setInMemoryRefreshToken(response.refresh_token)
     }
 
     // Extract run_mode if present
@@ -365,8 +369,8 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = newToken
     localStorage.setItem(AUTH_TOKEN_KEY, newToken)
 
-    // Read refresh token and expires_at from localStorage if set by OAuth callback
-    const savedRefreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
+    // OAuth callbacks keep refresh credentials in memory for this document session.
+    const savedRefreshToken = getInMemoryRefreshToken()
     const savedExpiresAt = localStorage.getItem(TOKEN_EXPIRES_AT_KEY)
 
     if (savedRefreshToken) {
@@ -474,7 +478,9 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     localStorage.removeItem(AUTH_TOKEN_KEY)
     localStorage.removeItem(AUTH_USER_KEY)
-    localStorage.removeItem(REFRESH_TOKEN_KEY)
+    clearInMemoryRefreshToken()
+    // Remove refresh tokens left by older frontend versions.
+    localStorage.removeItem('refresh_token')
     localStorage.removeItem(TOKEN_EXPIRES_AT_KEY)
 
     if (options?.preservePendingAuthSession) {
