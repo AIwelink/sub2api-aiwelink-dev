@@ -38,7 +38,7 @@
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { OAuthLoginStart } from '@/api/auth'
-import { resolveAffiliateReferralCode, storeOAuthAffiliateCode } from '@/utils/oauthAffiliate'
+import { resolveAffiliateReferralCode } from '@/utils/oauthAffiliate'
 
 const props = withDefaults(defineProps<{
   disabled?: boolean
@@ -56,7 +56,9 @@ const { t } = useI18n()
 
 function startLogin(): void {
   const redirectTo = (route.query.redirect as string) || '/dashboard'
-  storeOAuthAffiliateCode(resolveAffiliateReferralCode(props.affCode, route.query.aff, route.query.aff_code))
-  emit('start', { provider: 'dingtalk', params: { redirect: redirectTo } })
+  const affiliateCode = resolveAffiliateReferralCode(props.affCode, route.query.aff, route.query.aff_code)
+  const params: Record<string, string> = { redirect: redirectTo }
+  if (affiliateCode) params.aff_code = affiliateCode
+  emit('start', { provider: 'dingtalk', params })
 }
 </script>

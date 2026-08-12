@@ -33,7 +33,7 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { resolveWeChatOAuthStart, type OAuthLoginStart } from '@/api/auth'
 import { useAppStore } from '@/stores'
-import { resolveAffiliateReferralCode, storeOAuthAffiliateCode } from '@/utils/oauthAffiliate'
+import { resolveAffiliateReferralCode } from '@/utils/oauthAffiliate'
 
 const props = withDefaults(defineProps<{
   disabled?: boolean
@@ -89,11 +89,13 @@ function startLogin(): void {
     return
   }
   const redirectTo = (route.query.redirect as string) || '/dashboard'
-  storeOAuthAffiliateCode(resolveAffiliateReferralCode(props.affCode, route.query.aff, route.query.aff_code))
+  const affiliateCode = resolveAffiliateReferralCode(props.affCode, route.query.aff, route.query.aff_code)
   const mode = resolvedStart.value.mode
+  const params: Record<string, string> = { mode, redirect: redirectTo }
+  if (affiliateCode) params.aff_code = affiliateCode
   emit('start', {
     provider: 'wechat',
-    params: { mode, redirect: redirectTo }
+    params
   })
 }
 </script>

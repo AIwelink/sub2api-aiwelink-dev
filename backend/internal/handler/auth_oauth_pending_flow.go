@@ -33,11 +33,13 @@ const (
 	oauthPendingSessionCookiePath = "/api/v1/auth/oauth"
 	oauthPendingSessionCookieName = "oauth_pending_session"
 	oauthPromoCodeCookieName      = "oauth_promo_code"
+	oauthAffiliateCodeCookieName  = "oauth_affiliate_code"
 	oauthPendingCookieMaxAgeSec   = 10 * 60
 	oauthPendingChoiceStep        = "choose_account_action_required"
 
 	oauthCompletionResponseKey = "completion_response"
 	oauthPromoCodeStateKey     = "promo_code"
+	oauthAffiliateCodeStateKey = "affiliate_code"
 )
 
 var pendingOAuthCreateAccountPreCommitHook func(context.Context, *dbent.PendingAuthSession) error
@@ -208,11 +210,58 @@ func readOAuthPromoCode(c *gin.Context) string {
 	return strings.TrimSpace(promoCode)
 }
 
+func captureOAuthAffiliateCode(c *gin.Context, secure bool) {
+	affiliateCode := strings.TrimSpace(firstNonEmpty(c.Query("aff_code"), c.Query("aff")))
+	if affiliateCode == "" {
+		clearOAuthAffiliateCodeCookie(c, secure)
+		return
+	}
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     oauthAffiliateCodeCookieName,
+		Value:    encodeCookieValue(affiliateCode),
+		Path:     oauthPendingBrowserCookiePath,
+		MaxAge:   oauthPendingCookieMaxAgeSec,
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func clearOAuthAffiliateCodeCookie(c *gin.Context, secure bool) {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     oauthAffiliateCodeCookieName,
+		Value:    "",
+		Path:     oauthPendingBrowserCookiePath,
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func readOAuthAffiliateCode(c *gin.Context) string {
+	if c == nil {
+		return ""
+	}
+	affiliateCode, err := readCookieDecoded(c, oauthAffiliateCodeCookieName)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(affiliateCode)
+}
+
 func pendingOAuthPromoCode(session *dbent.PendingAuthSession) string {
 	if session == nil {
 		return ""
 	}
 	return pendingSessionStringValue(session.LocalFlowState, oauthPromoCodeStateKey)
+}
+
+func pendingOAuthAffiliateCode(session *dbent.PendingAuthSession) string {
+	if session == nil {
+		return ""
+	}
+	return pendingSessionStringValue(session.LocalFlowState, oauthAffiliateCodeStateKey)
 }
 
 func redirectToFrontendCallback(c *gin.Context, frontendCallback string) {
@@ -242,6 +291,9 @@ func (h *AuthHandler) createOAuthPendingSession(c *gin.Context, payload oauthPen
 	}
 	if promoCode := readOAuthPromoCode(c); promoCode != "" {
 		localFlowState[oauthPromoCodeStateKey] = promoCode
+	}
+	if affiliateCode := readOAuthAffiliateCode(c); affiliateCode != "" {
+		localFlowState[oauthAffiliateCodeStateKey] = affiliateCode
 	}
 
 	session, err := svc.CreatePendingSession(c.Request.Context(), service.CreatePendingAuthSessionInput{
@@ -1504,6 +1556,7 @@ func clearOAuthLogoutCookies(c *gin.Context) {
 	clearOAuthPendingSessionCookie(c, secureCookie)
 	clearOAuthPendingBrowserCookie(c, secureCookie)
 	clearOAuthBindAccessTokenCookie(c, secureCookie)
+	clearOAuthAffiliateCodeCookie(c, secureCookie)
 
 	clearCookie(c, linuxDoOAuthStateCookieName, secureCookie)
 	clearCookie(c, linuxDoOAuthVerifierCookie, secureCookie)
@@ -1846,7 +1899,7 @@ func (h *AuthHandler) createPendingOAuthAccount(c *gin.Context, provider string)
 		user,
 		strings.TrimSpace(req.InvitationCode),
 		strings.TrimSpace(session.ProviderType),
-		strings.TrimSpace(req.AffCode),
+		strings.TrimSpace(firstNonEmpty(req.AffCode, pendingOAuthAffiliateCode(session))),
 	); err != nil {
 		_ = tx.Rollback()
 		if rollbackCreatedUser(err) {
