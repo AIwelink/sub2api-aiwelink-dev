@@ -50,7 +50,7 @@ describe('EmailOAuthButtons', () => {
         params: { redirect: '/billing?plan=pro', aff_code: 'AFF123' }
       }
     ]])
-    expect(window.sessionStorage.getItem('oauth_aff_code')).toBe('AFF123')
+    expect(window.sessionStorage.getItem('oauth_aff_code')).toBeNull()
     expect(window.sessionStorage.getItem('email_oauth_pending_provider')).toBe('github')
   })
 
