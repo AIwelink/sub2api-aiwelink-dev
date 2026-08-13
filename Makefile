@@ -18,6 +18,8 @@ test-backend:
 	@$(MAKE) -C backend test
 
 test-frontend:
+	@pnpm --dir frontend run lint:check
+	@pnpm --dir frontend run typecheck
 	@pnpm --dir frontend run test:run
 
 test-frontend-checks:
