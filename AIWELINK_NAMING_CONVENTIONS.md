@@ -105,7 +105,7 @@ PR 标题沿用 Commit 格式，或在自动化发布/维护场景使用明确�
 
 ```text
 feat(version): add AIWeLink release versioning
-[release] publish AIWeLink 0.1.170-1
+[release] publish AIWeLink 0.1.176-1
 ```
 
 PR 描述至少包含：目的、主要文件或模块、用户影响、配置或部署变化、验证命令、已知风险和回滚方式。普通功能 PR 指向 `aiwelink-dev`；发布 PR 指向 `main`；官方同步 PR 使用 `sync/upstream-*` 并保留合并提交。
@@ -124,16 +124,16 @@ AIWeLink 版本由 Sub2API 上游基线和 AIWeLink 修订号组成：
 
 | 含义 | 值 |
 | --- | --- |
-| 上游基线 | `0.1.170` |
-| 第一版 AIWeLink 修订 | `0.1.170-1` |
-| 后续修订 | `0.1.170-2.4` |
+| 上游基线 | `0.1.176` |
+| 第一版 AIWeLink 修订 | `0.1.176-1` |
+| 后续修订 | `0.1.176-2.4` |
 | 上游进入 `0.1.171` 后重新计数 | `0.1.171-1` |
 
 规则：
 
-1. Git Tag 使用 `v` 前缀，例如 `v0.1.170-1`。
+1. Git Tag 使用 `v` 前缀，例如 `v0.1.176-1`。
 2. `backend/cmd/server/VERSION` 不包含 `v`，必须是完整 AIWeLink 版本。
-3. `backend/cmd/server/UPSTREAM_VERSION` 只写三段上游版本，例如 `0.1.170`。
+3. `backend/cmd/server/UPSTREAM_VERSION` 只写三段上游版本，例如 `0.1.176`。
 4. AIWeLink 修订号从 `1` 开始，禁止 `0`、前导零和无意义的 `-dev` 后缀。
 5. 更新、回滚和安装器只接受完整 AIWeLink 版本，不把上游三段版本当作可安装版本。
 6. 发布 Tag、VERSION、镜像版本和 Release 元数据必须一致；发布流程不得自动回写 VERSION。
@@ -150,7 +150,7 @@ docker.aiwelink.cc/sub2api-aiwelink-dev
 
 | Tag | 用途 |
 | --- | --- |
-| `0.1.170-1` | 可追溯的正式版本，不带 `v` |
+| `0.1.176-1` | 可追溯的正式版本，不带 `v` |
 | `latest` | 仅由生产发布流程维护 |
 | `dev` | 开发环境浮动版本 |
 | `dev-<short-sha>` | 开发构建的不可变定位版本 |
@@ -239,8 +239,8 @@ docker.aiwelink.cc/sub2api-aiwelink-dev
 ```text
 分支:     feature/api-key-expiration
 Commit:   feat(version): add AIWeLink release version parser
-Tag:      v0.1.170-1
-镜像:     docker.aiwelink.cc/sub2api-aiwelink-dev:0.1.170-1
+Tag:      v0.1.176-1
+镜像:     docker.aiwelink.cc/sub2api-aiwelink-dev:0.1.176-1
 Go:       backend/internal/versioninfo/version.go
 Vue:      frontend/src/components/common/VersionBadge.vue
 API:      /v1/api-keys, upstream_version
