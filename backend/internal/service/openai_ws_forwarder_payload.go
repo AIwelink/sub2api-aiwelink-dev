@@ -176,7 +176,7 @@ func (s *OpenAIGatewayService) buildOpenAIWSHeaders(
 func (s *OpenAIGatewayService) buildOpenAIWSCreatePayload(reqBody map[string]any, account *Account) map[string]any {
 	// OpenAI WS Mode 协议：response.create 字段与 HTTP /responses 基本一致。
 	// 保留 stream 字段（与 Codex CLI 一致），仅移除 background。
-	payload := make(map[string]any, len(reqBody)+1)
+	payload := make(map[string]any)
 	for k, v := range reqBody {
 		payload[k] = v
 	}
@@ -208,7 +208,7 @@ func setOpenAIWSTurnMetadata(payload map[string]any, turnMetadata string) {
 		existing[openAIWSTurnMetadataHeader] = metadata
 		payload["client_metadata"] = existing
 	case map[string]string:
-		next := make(map[string]any, len(existing)+1)
+		next := make(map[string]any)
 		for k, v := range existing {
 			next[k] = v
 		}
@@ -635,8 +635,7 @@ func buildOpenAIWSReplayInputSequence(
 	if openAIWSRawItemsHasPrefix(currentItems, previousFullInput) {
 		return cloneOpenAIWSRawMessages(currentItems), true, nil
 	}
-	merged := make([]json.RawMessage, 0, len(previousFullInput)+len(currentItems))
-	merged = append(merged, cloneOpenAIWSRawMessages(previousFullInput)...)
+	merged := cloneOpenAIWSRawMessages(previousFullInput)
 	merged = append(merged, cloneOpenAIWSRawMessages(currentItems)...)
 	return merged, true, nil
 }

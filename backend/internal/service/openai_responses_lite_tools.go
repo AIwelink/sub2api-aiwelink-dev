@@ -156,7 +156,7 @@ func appendOpenAIResponsesLiteAdditionalTools(input any, namespaceTools []any) (
 
 func mergeOpenAIResponsesLiteAdditionalTools(existing []any, moved []any) ([]any, error) {
 	merged := append([]any(nil), existing...)
-	seen := make(map[string]any, len(existing)+len(moved))
+	seen := make(map[string]any)
 	for _, rawTool := range existing {
 		if identity := openAIResponsesLiteToolIdentity(rawTool); identity != "" {
 			if previous, exists := seen[identity]; exists && !reflect.DeepEqual(previous, rawTool) {
