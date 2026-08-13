@@ -1258,21 +1258,14 @@ func (r *contentModerationHandlerTestRepo) UpdateLogEmailSent(ctx context.Contex
 func TestOpenAIResponsesWebSocket_ContentModerationBlocksFirstFrame(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	moderationServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/moderations", r.URL.Path)
-		_, _ = w.Write([]byte(`{"results":[{"category_scores":{"sexual":0.9}}]}`))
-	}))
-	defer moderationServer.Close()
-
 	cfg := &service.ContentModerationConfig{
-		Enabled:      true,
-		Mode:         service.ContentModerationModePreBlock,
-		BaseURL:      moderationServer.URL,
-		Model:        "omni-moderation-latest",
-		APIKeys:      []string{"sk-test"},
-		SampleRate:   100,
-		AllGroups:    true,
-		BlockMessage: "内容审计测试阻断",
+		Enabled:             true,
+		Mode:                service.ContentModerationModePreBlock,
+		SampleRate:          100,
+		AllGroups:           true,
+		BlockMessage:        "内容审计测试阻断",
+		BlockedKeywords:     []string{"bad prompt"},
+		KeywordBlockingMode: service.ContentModerationKeywordModeKeywordOnly,
 	}
 	rawCfg, err := json.Marshal(cfg)
 	require.NoError(t, err)
@@ -1351,7 +1344,7 @@ func TestOpenAIResponsesWebSocket_ContentModerationBlocksFirstFrame(t *testing.T
 		return len(logs) == 1
 	}, time.Second, 10*time.Millisecond)
 	require.True(t, logs[0].Flagged)
-	require.Equal(t, service.ContentModerationActionBlock, logs[0].Action)
+	require.Equal(t, service.ContentModerationActionKeywordBlock, logs[0].Action)
 	require.Equal(t, "bad prompt", logs[0].InputExcerpt)
 }
 
