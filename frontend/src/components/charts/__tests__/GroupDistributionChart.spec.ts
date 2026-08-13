@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 
 import GroupDistributionChart from '../GroupDistributionChart.vue'
@@ -35,6 +35,15 @@ vi.mock('vue-chartjs', () => ({
 }))
 
 describe('GroupDistributionChart', () => {
+  beforeEach(() => {
+    document.documentElement.style.setProperty('--color-primary-500', '186 54 80')
+    document.documentElement.style.setProperty('--color-accent-500', '233 190 115')
+  })
+
+  afterEach(() => {
+    document.documentElement.removeAttribute('style')
+  })
+
   const groupStats = [
     {
       group_id: 1,
@@ -69,6 +78,7 @@ describe('GroupDistributionChart', () => {
     const chartData = JSON.parse(wrapper.find('.chart-data').text())
     expect(chartData.labels).toEqual(['group-a', 'group-b'])
     expect(chartData.datasets[0].data).toEqual([1200, 600])
+    expect(chartData.datasets[0].backgroundColor[0]).toBe('rgb(186, 54, 80)')
 
     const rows = wrapper.findAll('tbody tr')
     expect(rows[0].text()).toContain('group-a')

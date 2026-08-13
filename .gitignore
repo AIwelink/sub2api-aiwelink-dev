@@ -143,6 +143,7 @@ docs/*
 frontend/coverage/
 aicodex
 output/
+.worktrees/
 
 # Vitest / Vite cache at repo root
 .vite/

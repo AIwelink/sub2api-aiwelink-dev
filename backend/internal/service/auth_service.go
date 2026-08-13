@@ -147,6 +147,13 @@ func (s *AuthService) EntClient() *dbent.Client {
 	return s.entClient
 }
 
+func (s *AuthService) SetGrowthRegistrationRecorder(recorder GrowthRegistrationRecorder) {
+	if s == nil {
+		return
+	}
+	s.growthRegistration = recorder
+}
+
 func (s *AuthService) SetTencentCaptchaService(tencentCaptchaService *TencentCaptchaService) {
 	s.tencentCaptchaService = tencentCaptchaService
 }

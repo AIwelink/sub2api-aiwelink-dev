@@ -22,6 +22,8 @@ builds:
       - amd64
     ldflags:
       - -s -w
+      - -X main.Version={{.Version}}
+      - -X main.UpstreamVersion={{.Env.UPSTREAM_VERSION}}
       - -X main.Commit={{.Commit}}
       - -X main.Date={{.Date}}
       - -X main.BuildType=release
@@ -44,7 +46,6 @@ dockers:
     image_templates:
       - "ghcr.io/{{ .Env.GITHUB_REPO_OWNER_LOWER }}/sub2api:{{ .Version }}-amd64"
       - "ghcr.io/{{ .Env.GITHUB_REPO_OWNER_LOWER }}/sub2api:{{ .Version }}"
-      - "ghcr.io/{{ .Env.GITHUB_REPO_OWNER_LOWER }}/sub2api:latest"
     dockerfile: Dockerfile.goreleaser
     use: buildx
     extra_files:
@@ -64,8 +65,8 @@ release:
     owner: "{{ .Env.GITHUB_REPO_OWNER }}"
     name: "{{ .Env.GITHUB_REPO_NAME }}"
   draft: false
-  prerelease: auto
-  name_template: "Sub2API {{.Version}} (Simple)"
+  prerelease: true
+  name_template: "AIWeLink {{.Version}} (Simple)"
   # 跳过上传二进制包
   skip_upload: true
   header: |

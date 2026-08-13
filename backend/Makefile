@@ -1,10 +1,14 @@
-.PHONY: build generate test test-unit test-integration test-e2e
+.PHONY: build generate test test-unit test-integration test-growth-contract security test-e2e
 
 VERSION ?= $(shell ./scripts/resolve-version.sh)
-LDFLAGS ?= -s -w -X main.Version=$(VERSION)
+UPSTREAM_VERSION ?= $(shell tr -d '\r\n' < ./cmd/server/UPSTREAM_VERSION)
+LDFLAGS ?= -s -w -X main.Version=$(VERSION) -X main.UpstreamVersion=$(UPSTREAM_VERSION)
 
-build:
+build: validate-version
 	CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -trimpath -o bin/server ./cmd/server
+
+validate-version:
+	./scripts/validate-version.sh
 
 generate:
 	go generate ./ent
@@ -19,6 +23,13 @@ test-unit:
 
 test-integration:
 	go test -tags=integration ./...
+
+test-growth-contract:
+	go test -tags=unit ./internal/service ./internal/server/routes ./internal/server/middleware \
+		-run 'GrowthRegistration|GrowthReferral|AuthService_Register_RecordsGrowth' -count=1
+
+security:
+	go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 
 test-e2e:
 	./scripts/e2e-test.sh
