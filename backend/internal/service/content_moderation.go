@@ -23,7 +23,7 @@ import (
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/httpclient"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/servertiming"
+	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
 )
 
 const (
@@ -498,39 +498,39 @@ type ContentModerationHashCache interface {
 }
 
 type ContentModerationService struct {
-	settingRepo              SettingRepository
-	repo                     ContentModerationRepository
-	hashCache                ContentModerationHashCache
-	groupRepo                GroupRepository
-	userRepo                 UserRepository
-	proxyRepo                ProxyRepository
-	authCacheInvalidator     APIKeyAuthCacheInvalidator
-	emailService             *EmailService
-	httpClient               *http.Client
-	moderationProxyCache     atomic.Pointer[moderationProxyURLCacheEntry]
-	asyncQueue               chan contentModerationTask
-	workerCount              int
-	apiKeyCursor             atomic.Uint64
-	asyncActive              atomic.Int64
-	asyncEnqueued            atomic.Int64
-	asyncDropped             atomic.Int64
-	asyncProcessed           atomic.Int64
-	asyncErrors              atomic.Int64
-	preBlockActive           atomic.Int64
-	preBlockChecked          atomic.Int64
-	preBlockAllowed          atomic.Int64
-	preBlockBlocked          atomic.Int64
-	preBlockErrors           atomic.Int64
-	preBlockLatencyTotalMS   atomic.Int64
-	lastCleanupUnix          atomic.Int64
-	lastCleanupDeletedHit    atomic.Int64
-	lastCleanupDeletedNonHit atomic.Int64
-	runtimeSnapshot          atomic.Pointer[contentModerationRuntimeSnapshot]
-	runtimeRefreshMu         sync.Mutex
-	runtimeCacheTTL          time.Duration
-	runtimeRefreshRetryAt    atomic.Int64
-	keyHealthMu              sync.Mutex
-	keyHealth                map[string]*contentModerationKeyHealth
+	settingRepo               SettingRepository
+	repo                      ContentModerationRepository
+	hashCache                 ContentModerationHashCache
+	groupRepo                 GroupRepository
+	userRepo                  UserRepository
+	proxyRepo                 ProxyRepository
+	authCacheInvalidator      APIKeyAuthCacheInvalidator
+	emailService              *EmailService
+	allowUnsafeModerationURLs bool
+	moderationProxyCache      atomic.Pointer[moderationProxyURLCacheEntry]
+	asyncQueue                chan contentModerationTask
+	workerCount               int
+	apiKeyCursor              atomic.Uint64
+	asyncActive               atomic.Int64
+	asyncEnqueued             atomic.Int64
+	asyncDropped              atomic.Int64
+	asyncProcessed            atomic.Int64
+	asyncErrors               atomic.Int64
+	preBlockActive            atomic.Int64
+	preBlockChecked           atomic.Int64
+	preBlockAllowed           atomic.Int64
+	preBlockBlocked           atomic.Int64
+	preBlockErrors            atomic.Int64
+	preBlockLatencyTotalMS    atomic.Int64
+	lastCleanupUnix           atomic.Int64
+	lastCleanupDeletedHit     atomic.Int64
+	lastCleanupDeletedNonHit  atomic.Int64
+	runtimeSnapshot           atomic.Pointer[contentModerationRuntimeSnapshot]
+	runtimeRefreshMu          sync.Mutex
+	runtimeCacheTTL           time.Duration
+	runtimeRefreshRetryAt     atomic.Int64
+	keyHealthMu               sync.Mutex
+	keyHealth                 map[string]*contentModerationKeyHealth
 }
 
 type contentModerationRuntimeSnapshot struct {
@@ -589,7 +589,6 @@ func NewContentModerationService(
 		proxyRepo:            proxyRepo,
 		authCacheInvalidator: authCacheInvalidator,
 		emailService:         emailService,
-		httpClient:           servertiming.InstrumentClient(nil),
 		workerCount:          maxContentModerationWorkerCount,
 		asyncQueue:           make(chan contentModerationTask, maxContentModerationQueueSize),
 		keyHealth:            make(map[string]*contentModerationKeyHealth),
@@ -1658,7 +1657,7 @@ func (s *ContentModerationService) validateConfig(ctx context.Context, cfg *Cont
 	default:
 		return infraerrors.BadRequest("INVALID_CONTENT_MODERATION_MODE", "内容审计模式无效")
 	}
-	if _, err := url.ParseRequestURI(cfg.BaseURL); err != nil {
+	if _, err := s.validateModerationBaseURL(cfg.BaseURL); err != nil {
 		return infraerrors.BadRequest("INVALID_CONTENT_MODERATION_BASE_URL", "OpenAI Base URL 无效")
 	}
 	if cfg.ProxyID != nil && s.proxyRepo != nil {
@@ -1734,7 +1733,10 @@ func (s *ContentModerationService) callModeration(ctx context.Context, cfg *Cont
 }
 
 func (s *ContentModerationService) callModerationOnceWithInput(ctx context.Context, cfg *ContentModerationConfig, apiKey string, input any, httpStatus *int) (*moderationAPIResult, error) {
-	base := strings.TrimRight(cfg.BaseURL, "/")
+	base, err := s.validateModerationBaseURL(cfg.BaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid moderation base url: %w", err)
+	}
 	endpoint, err := url.JoinPath(base, "/v1/moderations")
 	if err != nil {
 		return nil, err
@@ -1799,21 +1801,46 @@ const contentModerationProxyURLCacheTTL = time.Minute
 // 未配置代理时沿用默认客户端；配置了代理时通过共享客户端池构建，
 // 代理解析/构建失败直接返回错误，绝不回退直连（避免 IP 关联风险）。
 func (s *ContentModerationService) moderationHTTPClient(ctx context.Context, cfg *ContentModerationConfig) (*http.Client, error) {
-	if cfg == nil || cfg.ProxyID == nil {
-		if s.httpClient == nil {
-			return http.DefaultClient, nil
+	proxyURL := ""
+	if cfg != nil && cfg.ProxyID != nil {
+		var err error
+		proxyURL, err = s.resolveModerationProxyURL(ctx, *cfg.ProxyID)
+		if err != nil {
+			return nil, err
 		}
-		return s.httpClient, nil
 	}
-	proxyURL, err := s.resolveModerationProxyURL(ctx, *cfg.ProxyID)
-	if err != nil {
-		return nil, err
-	}
-	client, err := httpclient.GetClient(httpclient.Options{ProxyURL: proxyURL})
+	client, err := httpclient.GetClient(httpclient.Options{
+		ProxyURL: proxyURL,
+		// A proxy resolves the target host on its side. Resolve and validate
+		// direct targets here, while literal private targets are rejected by
+		// validateModerationBaseURL for both modes.
+		ValidateResolvedIP: proxyURL == "",
+		AllowPrivateHosts:  s != nil && s.allowUnsafeModerationURLs,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("build moderation proxy client: %w", err)
 	}
-	return client, nil
+	securedClient := *client
+	securedClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return errors.New("stopped after 10 redirects")
+		}
+		if req == nil || req.URL == nil {
+			return errors.New("moderation redirect url is nil")
+		}
+		if _, err := s.validateModerationBaseURL(req.URL.String()); err != nil {
+			return fmt.Errorf("unsafe moderation redirect: %w", err)
+		}
+		return nil
+	}
+	return &securedClient, nil
+}
+
+func (s *ContentModerationService) validateModerationBaseURL(raw string) (string, error) {
+	if s != nil && s.allowUnsafeModerationURLs {
+		return urlvalidator.ValidateHTTPURL(raw, true, urlvalidator.ValidationOptions{AllowPrivate: true})
+	}
+	return urlvalidator.ValidateHTTPSURL(raw, urlvalidator.ValidationOptions{})
 }
 
 func (s *ContentModerationService) resolveModerationProxyURL(ctx context.Context, proxyID int64) (string, error) {
