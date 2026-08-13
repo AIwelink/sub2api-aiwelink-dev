@@ -76,7 +76,7 @@ func FlattenResponsesNamespacesExcept(req map[string]any, preserved map[string]b
 		return nil, false, nil
 	}
 
-	flattened := make([]any, 0, len(tools)+len(names))
+	var flattened []any
 	seen := make(map[string]bool)
 	for _, raw := range tools {
 		tool, ok := raw.(map[string]any)
