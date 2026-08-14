@@ -96,9 +96,6 @@ type wechatPaymentOAuthContext struct {
 // WeChatOAuthStart starts the WeChat OAuth login flow and stores the short-lived
 // browser cookies required by the rebuild pending-auth bridge.
 func (h *AuthHandler) WeChatOAuthStart(c *gin.Context) {
-	if !h.requireActionCaptchaForOAuthLoginStart(c) {
-		return
-	}
 	cfg, err := h.getWeChatOAuthConfig(c.Request.Context(), c.Query("mode"), c)
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -129,7 +126,6 @@ func (h *AuthHandler) WeChatOAuthStart(c *gin.Context) {
 	wechatSetCookie(c, wechatOAuthIntentCookieName, encodeCookieValue(intent), wechatOAuthCookieMaxAgeSec, secureCookie)
 	wechatSetCookie(c, wechatOAuthModeCookieName, encodeCookieValue(cfg.mode), wechatOAuthCookieMaxAgeSec, secureCookie)
 	captureOAuthPromoCode(c, secureCookie)
-	captureOAuthAffiliateCode(c, secureCookie)
 	setOAuthPendingBrowserCookie(c, browserSessionKey, secureCookie)
 	clearOAuthPendingSessionCookie(c, secureCookie)
 	if intent == oauthIntentBindCurrentUser {
@@ -149,7 +145,7 @@ func (h *AuthHandler) WeChatOAuthStart(c *gin.Context) {
 		return
 	}
 
-	respondOAuthStart(c, authURL)
+	c.Redirect(http.StatusFound, authURL)
 }
 
 // WeChatOAuthCallback exchanges the code with WeChat, resolves openid/unionid,
@@ -177,7 +173,6 @@ func (h *AuthHandler) WeChatOAuthCallback(c *gin.Context) {
 		wechatClearCookie(c, wechatOAuthModeCookieName, secureCookie)
 		wechatClearCookie(c, wechatOAuthBindUserCookieName, secureCookie)
 		clearOAuthPromoCodeCookie(c, secureCookie)
-		clearOAuthAffiliateCodeCookie(c, secureCookie)
 	}()
 
 	expectedState, err := readCookieDecoded(c, wechatOAuthStateCookieName)
@@ -560,7 +555,7 @@ func (h *AuthHandler) CompleteWeChatOAuthRegistration(c *gin.Context) {
 		email,
 		username,
 		req.InvitationCode,
-		firstNonEmpty(req.AffCode, pendingOAuthAffiliateCode(session)),
+		req.AffCode,
 		pendingOAuthPromoCode(session),
 		"wechat",
 	)

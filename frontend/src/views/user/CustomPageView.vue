@@ -253,7 +253,7 @@ async function fetchAndRenderMarkdown(slug: string) {
       /<(h[1-4])[^>]*>(.*?)<\/h[1-4]>/gi,
       (_, tag: string, content: string) => {
         const level = parseInt(tag[1])
-        const text = DOMPurify.sanitize(content, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] }).trim()
+        const text = content.replace(/<[^>]+>/g, '').trim()
         const id = generateHeadingId(text, headingIndex++)
         toc.push({ id, text, level })
         return `<${tag} id="${id}">${content}</${tag}>`

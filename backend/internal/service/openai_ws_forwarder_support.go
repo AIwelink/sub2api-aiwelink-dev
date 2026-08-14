@@ -71,7 +71,7 @@ func (s *OpenAIGatewayService) performOpenAIWSGeneratePrewarm(
 	prewarmStart := time.Now()
 	logOpenAIWSModeInfo("prewarm_start account_id=%d conn_id=%s", account.ID, connID)
 
-	prewarmPayload := make(map[string]any)
+	prewarmPayload := make(map[string]any, len(payload)+1)
 	for k, v := range payload {
 		prewarmPayload[k] = v
 	}

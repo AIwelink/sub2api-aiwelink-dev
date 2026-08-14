@@ -4,13 +4,13 @@
 
 ## Goal
 
-Bind a successful ordinary email registration in Sub2API to the promotion session established by the Traffic-owned `/r/{code}` flow. The local user row and durable outbox event commit atomically, while Traffic availability remains outside the synchronous registration path.
+Bind a successful ordinary email registration in Sub2API to the promotion session established by the Traffic-owned `/r/{code}` flow, without coupling registration availability to Traffic.
 
 ## Scope
 
 - Sub2API only consumes the configured promotion-session cookie.
 - The only HTTP request inspected is `POST /api/v1/auth/register`.
-- The user is prepared first, the access token is generated, and then the user row and registration event commit in one PostgreSQL transaction.
+- A registration event is recorded only after the user is created and the access token is generated successfully.
 - Missing or invalid promotion cookies produce a registration event with `growth_session: null`.
 - The feature is opt-in and disabled by default.
 
@@ -27,12 +27,11 @@ Bind a successful ordinary email registration in Sub2API to the promotion sessio
 1. The Traffic-owned `/r/{code}` flow establishes a cookie such as `awl_growth_sid`.
 2. `GrowthRegistrationSession` runs only for the exact ordinary registration method and path.
 3. A valid cookie value is copied into the request context; the middleware never changes the request body.
-4. `AuthService.RegisterWithVerification` opens an Ent transaction and creates the user without committing it.
-5. The service generates the access token, then `GrowthRegistrationRecorder` creates a fresh source UUID, encrypts the promotion session, and inserts the outbox event through the same transaction.
-6. The user and outbox event commit together before registration success is returned.
-7. Existing post-registration bootstrap work remains best-effort and outside the transaction.
-8. `GrowthRegistrationWorker` claims available rows and sends the stable payload to the configured Traffic endpoint.
-9. A `200` or `201` response deletes the claimed row. Retryable failures are rescheduled; permanent failures are dead-lettered.
+4. `AuthService.RegisterWithVerification` completes all existing registration work and generates the access token.
+5. `GrowthRegistrationRecorder` creates a fresh source UUID and an outbox event.
+6. The promotion session is encrypted before the event is inserted into PostgreSQL.
+7. `GrowthRegistrationWorker` claims available rows and sends the stable payload to the configured Traffic endpoint.
+8. A `200` or `201` response deletes the claimed row. Retryable failures are rescheduled; permanent failures are dead-lettered.
 
 ```mermaid
 sequenceDiagram
@@ -41,9 +40,8 @@ sequenceDiagram
     participant DB as PostgreSQL outbox
     participant Traffic
     Browser->>Sub2: POST /api/v1/auth/register + cookie
-    Sub2->>DB: Begin transaction and insert user
-    Sub2->>Sub2: Generate access token
-    Sub2->>DB: Insert encrypted event and commit both rows
+    Sub2->>Sub2: Create user and generate token
+    Sub2->>DB: Insert encrypted registration event
     Sub2-->>Browser: Registration success
     Sub2->>DB: Claim event
     Sub2->>Traffic: POST /internal/growth/registrations/bind
@@ -85,14 +83,12 @@ Workers claim with `FOR UPDATE SKIP LOCKED`. Claim transitions require the same 
 
 ## Failure Semantics
 
-- Local durable enqueue is fail-closed. Token generation, encryption, outbox insertion, or a known transaction failure prevents a success response and rolls back the user and event together.
-- The recorder detaches request cancellation and bounds the insert operation so a client disconnect does not interrupt a transaction that is already preparing the durable registration.
-- Traffic delivery is asynchronous and fail-open with respect to registration: Traffic, DNS, TLS, or network outages cannot roll back a committed user and outbox event.
+- Registration recording is fail-open. Insert or encryption errors are logged and do not fail the user registration.
+- The recorder detaches request cancellation and bounds the insert operation so a client disconnect does not lose an already successful registration.
 - Disabled configuration produces a no-op runtime.
 - Enabled configuration with a missing repository, credential, site ID, encryption key, endpoint, or positive timeout fails application startup.
-- Transport failures and HTTP `408`, `425`, `429`, `500`, `502`, `503`, and `504` responses use bounded jittered exponential backoff.
-- Empty, malformed, oversized, or unreadable bodies retain the HTTP status classification: retryable statuses are rescheduled and permanent statuses are dead-lettered.
-- Other HTTP responses and decryption failures are dead-lettered.
+- Transport failures and explicitly retryable `503` Traffic responses use bounded jittered exponential backoff.
+- Other HTTP responses, malformed responses, oversized bodies, and decryption failures are dead-lettered.
 - Outbox transition failures retain the row for lease recovery.
 
 ## Security Boundaries
@@ -130,9 +126,8 @@ Workers claim with `FOR UPDATE SKIP LOCKED`. Claim transitions require the same 
 
 - Only the exact ordinary email registration endpoint can capture the promotion cookie.
 - OAuth, passkey, login growth, and native affiliate flows remain unchanged.
-- Successful ordinary registration commits exactly one user and one outbox event atomically.
-- No user/outbox transaction commits before token generation succeeds; local enqueue failure does not leave a registered email without its event.
-- Traffic delivery failures remain asynchronous and do not change the completed registration result.
+- Successful ordinary registration records one event and recorder failure remains fail-open.
+- No event is recorded before token generation succeeds.
 - The outbox survives process and Traffic outages and safely retries eligible failures.
 - Promotion sessions are encrypted at rest and absent from logs.
 - Disabled configuration preserves existing behavior.
