@@ -6,6 +6,8 @@ import (
 	"errors"
 	"hash/fnv"
 	"log/slog"
+	"math"
+	"net/url"
 	"reflect"
 	"sort"
 	"strconv"
@@ -71,6 +73,7 @@ type Account struct {
 	modelMappingCacheRawPtr         uintptr
 	modelMappingCacheRawLen         int
 	modelMappingCacheRawSig         uint64
+	modelMappingCacheRuntimeVersion uint64
 
 	// header_overrides 热路径缓存（非持久化字段，同 model_mapping 缓存先例）
 	headerOverrideCache               map[string]string
@@ -553,6 +556,7 @@ func stringMappingFromRaw(raw any) map[string]string {
 }
 
 func (a *Account) GetModelMapping() map[string]string {
+	runtimeVersion := xai.RuntimeModelMappingVersion()
 	credentialsPtr := mapPtr(a.Credentials)
 	rawMapping, _ := a.Credentials["model_mapping"].(map[string]any)
 	rawPtr := mapPtr(rawMapping)
@@ -563,7 +567,8 @@ func (a *Account) GetModelMapping() map[string]string {
 	if a.modelMappingCacheReady &&
 		a.modelMappingCacheCredentialsPtr == credentialsPtr &&
 		a.modelMappingCacheRawPtr == rawPtr &&
-		a.modelMappingCacheRawLen == rawLen {
+		a.modelMappingCacheRawLen == rawLen &&
+		a.modelMappingCacheRuntimeVersion == runtimeVersion {
 		rawSig = modelMappingSignature(rawMapping)
 		rawSigReady = true
 		if a.modelMappingCacheRawSig == rawSig {
@@ -582,6 +587,7 @@ func (a *Account) GetModelMapping() map[string]string {
 	a.modelMappingCacheRawPtr = rawPtr
 	a.modelMappingCacheRawLen = rawLen
 	a.modelMappingCacheRawSig = rawSig
+	a.modelMappingCacheRuntimeVersion = runtimeVersion
 	return mapping
 }
 
@@ -620,6 +626,11 @@ func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]stri
 				"gemini-3-flash",
 				"gemini-3.1-pro-high",
 				"gemini-3.1-pro-low",
+				"gemini-3.6-flash",
+				"gemini-3.6-flash-high",
+				"gemini-3.6-flash-low",
+				"gemini-3.6-flash-medium",
+				"gemini-3.6-flash-tiered",
 			})
 			applyAntigravityGemini31ProAliases(result)
 		}
@@ -1306,25 +1317,47 @@ func (a *Account) GetOpenAIRefreshToken() string {
 // traffic (OAuth authorization and token refresh) always uses the official
 // auth endpoints regardless of this value.
 func (a *Account) GetGrokBaseURL() string {
-	if !a.IsGrok() {
+	if a == nil || !a.IsGrok() {
 		return ""
 	}
-	baseURL := strings.TrimSpace(a.GetCredential("base_url"))
 	if a.IsGrokOAuth() {
-		// Operators switch subscription traffic between the official CLI
-		// gateway, the official/regional API hosts and third-party relays
-		// (individual endpoints go down from time to time), so a stored
-		// value is always honored as-is. Only empty or unparseable values
-		// fall back to the default CLI gateway.
-		if baseURL == "" || !xai.IsParseableBaseURL(baseURL) {
-			return xai.DefaultCLIBaseURL
+		return a.GetGrokBaseURLOr(xai.DefaultCLIBaseURL)
+	}
+	return a.GetGrokBaseURLOr(xai.DefaultBaseURL)
+}
+
+// GetGrokBaseURLOr resolves an explicit account endpoint, falling back to the
+// supplied default. Official OAuth endpoints are normalized here; custom
+// endpoints are retained for the request builder's operator URL policy.
+func (a *Account) GetGrokBaseURLOr(defaultBaseURL string) string {
+	if a == nil || !a.IsGrok() {
+		return ""
+	}
+	defaultBaseURL = strings.TrimRight(strings.TrimSpace(defaultBaseURL), "/")
+	if defaultBaseURL == "" {
+		if a.IsGrokOAuth() {
+			defaultBaseURL = xai.DefaultCLIBaseURL
+		} else {
+			defaultBaseURL = xai.DefaultBaseURL
 		}
+	}
+	baseURL := strings.TrimSpace(a.GetCredential("base_url"))
+	if baseURL == "" {
+		return defaultBaseURL
+	}
+	if !a.IsGrokOAuth() {
 		return baseURL
 	}
-	if baseURL != "" {
-		return baseURL
+	// Explicit regional/API or custom values remain pinned. Custom endpoints are checked by the
+	// operator URL policy at the request builder, which has access to config.
+	if validated, err := xai.ValidateTrustedBaseURL(baseURL); err == nil {
+		return validated
 	}
-	return xai.DefaultBaseURL
+	if parsed, err := url.Parse(baseURL); err == nil && parsed.Scheme != "" && parsed.Host != "" &&
+		parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == "" {
+		return strings.TrimRight(baseURL, "/")
+	}
+	return defaultBaseURL
 }
 
 // GetGrokMediaBaseURL selects the upstream used by Grok Imagine APIs.
@@ -2392,10 +2425,7 @@ func ComputeQuotaResetAt(extra map[string]any) {
 
 	// 日配额固定重置时间
 	if mode, _ := extra["quota_daily_reset_mode"].(string); mode == "fixed" {
-		hour := int(parseExtraFloat64(extra["quota_daily_reset_hour"]))
-		if hour < 0 || hour > 23 {
-			hour = 0
-		}
+		hour := parseBoundedExtraInt(extra["quota_daily_reset_hour"], 0, 23, 0)
 		resetAt := nextFixedDailyReset(hour, tz, now)
 		extra["quota_daily_reset_at"] = resetAt.UTC().Format(time.RFC3339)
 	} else {
@@ -2406,15 +2436,9 @@ func ComputeQuotaResetAt(extra map[string]any) {
 	if mode, _ := extra["quota_weekly_reset_mode"].(string); mode == "fixed" {
 		day := 1 // 默认周一
 		if d, ok := extra["quota_weekly_reset_day"]; ok {
-			day = int(parseExtraFloat64(d))
+			day = parseBoundedExtraInt(d, 0, 6, 1)
 		}
-		if day < 0 || day > 6 {
-			day = 1
-		}
-		hour := int(parseExtraFloat64(extra["quota_weekly_reset_hour"]))
-		if hour < 0 || hour > 23 {
-			hour = 0
-		}
+		hour := parseBoundedExtraInt(extra["quota_weekly_reset_hour"], 0, 23, 0)
 		resetAt := nextFixedWeeklyReset(day, hour, tz, now)
 		extra["quota_weekly_reset_at"] = resetAt.UTC().Format(time.RFC3339)
 	} else {
@@ -2443,10 +2467,7 @@ func NormalizeFixedQuotaWindows(extra map[string]any) {
 	}
 
 	if mode, _ := extra["quota_daily_reset_mode"].(string); mode == "fixed" && parseExtraFloat64(extra["quota_daily_limit"]) > 0 {
-		hour := int(parseExtraFloat64(extra["quota_daily_reset_hour"]))
-		if hour < 0 || hour > 23 {
-			hour = 0
-		}
+		hour := parseBoundedExtraInt(extra["quota_daily_reset_hour"], 0, 23, 0)
 		lastReset := lastFixedDailyReset(hour, tz, now)
 		start := parseExtraTime(extra["quota_daily_start"])
 		if start.IsZero() || start.Before(lastReset) {
@@ -2458,15 +2479,9 @@ func NormalizeFixedQuotaWindows(extra map[string]any) {
 	if mode, _ := extra["quota_weekly_reset_mode"].(string); mode == "fixed" && parseExtraFloat64(extra["quota_weekly_limit"]) > 0 {
 		day := 1
 		if rawDay, ok := extra["quota_weekly_reset_day"]; ok {
-			day = int(parseExtraFloat64(rawDay))
+			day = parseBoundedExtraInt(rawDay, 0, 6, 1)
 		}
-		if day < 0 || day > 6 {
-			day = 1
-		}
-		hour := int(parseExtraFloat64(extra["quota_weekly_reset_hour"]))
-		if hour < 0 || hour > 23 {
-			hour = 0
-		}
+		hour := parseBoundedExtraInt(extra["quota_weekly_reset_hour"], 0, 23, 0)
 		lastReset := lastFixedWeeklyReset(day, hour, tz, now)
 		start := parseExtraTime(extra["quota_weekly_start"])
 		if start.IsZero() || start.Before(lastReset) {
@@ -2495,8 +2510,7 @@ func ValidateQuotaResetConfig(extra map[string]any) error {
 	}
 	// 日配额重置小时
 	if v, ok := extra["quota_daily_reset_hour"]; ok {
-		hour := int(parseExtraFloat64(v))
-		if hour < 0 || hour > 23 {
+		if _, ok := boundedExtraInt(v, 0, 23); !ok {
 			return errors.New("quota_daily_reset_hour must be between 0 and 23")
 		}
 	}
@@ -2508,15 +2522,13 @@ func ValidateQuotaResetConfig(extra map[string]any) error {
 	}
 	// 周配额重置星期几
 	if v, ok := extra["quota_weekly_reset_day"]; ok {
-		day := int(parseExtraFloat64(v))
-		if day < 0 || day > 6 {
+		if _, ok := boundedExtraInt(v, 0, 6); !ok {
 			return errors.New("quota_weekly_reset_day must be between 0 (Sunday) and 6 (Saturday)")
 		}
 	}
 	// 周配额重置小时
 	if v, ok := extra["quota_weekly_reset_hour"]; ok {
-		hour := int(parseExtraFloat64(v))
-		if hour < 0 || hour > 23 {
+		if _, ok := boundedExtraInt(v, 0, 23); !ok {
 			return errors.New("quota_weekly_reset_hour must be between 0 and 23")
 		}
 	}
@@ -2802,6 +2814,22 @@ func parseExtraFloat64(value any) float64 {
 		}
 	}
 	return 0
+}
+
+func parseBoundedExtraInt(value any, minValue, maxValue, fallback int) int {
+	parsed, ok := boundedExtraInt(value, minValue, maxValue)
+	if !ok {
+		return fallback
+	}
+	return parsed
+}
+
+func boundedExtraInt(value any, minValue, maxValue int) (int, bool) {
+	parsed := math.Trunc(parseExtraFloat64(value))
+	if math.IsNaN(parsed) || math.IsInf(parsed, 0) || parsed < float64(minValue) || parsed > float64(maxValue) {
+		return 0, false
+	}
+	return int(parsed), true
 }
 
 func parseExtraTime(value any) time.Time {

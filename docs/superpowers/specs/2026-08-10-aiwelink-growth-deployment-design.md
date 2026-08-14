@@ -68,9 +68,9 @@ The operations guide covers:
 1. A browser visits `https://aiwelink.cc/r/{code}`.
 2. Traffic establishes the `awl_growth_sid` cookie for `.aiwelink.cc`.
 3. The browser completes email registration through Sub2API and sends that cookie.
-4. Sub2API writes the successful registration and encrypted growth session to `growth_registration_outbox` in the shared PostgreSQL database.
+4. Sub2API generates the access token, then commits the user and encrypted `growth_registration_outbox` row atomically in the shared PostgreSQL database.
 5. A Sub2API worker posts the event over HTTPS to Traffic with `Authorization: Service <credential>`.
-6. Traffic returns `200` or `201`; Sub2API deletes the delivered outbox row. Eligible `503` responses are retried, and terminal failures are retained as dead letters.
+6. Traffic returns `200` or `201`; Sub2API deletes the delivered outbox row. HTTP `408`, `425`, `429`, `500`, `502`, `503`, and `504` responses are retried, and terminal failures are retained as dead letters.
 
 ## Security And Failure Handling
 
