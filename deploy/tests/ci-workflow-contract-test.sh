@@ -15,6 +15,7 @@ RELEASE="$ROOT_DIR/.github/workflows/release.yml"
 GROWTH_CANARY="$ROOT_DIR/.github/workflows/growth-public-canary.yml"
 GROWTH_CANARY_SCRIPT="$ROOT_DIR/deploy/tests/growth-public-canary.sh"
 MAKEFILE="$ROOT_DIR/Makefile"
+IMAGE_SUMMARY="$ROOT_DIR/deploy/image-publish-summary.sh"
 
 assert_contains() {
   local file=$1 text=$2
@@ -52,6 +53,24 @@ assert_contains "$CI" 'type=raw,value=latest,enable='
 assert_contains "$CI" 'type=sha,prefix=dev-,format=short,enable='
 assert_contains "$CI" 'type=sha,prefix=main-,format=short,enable='
 assert_not_contains "$CI" 'type=raw,value=${{ steps.version.outputs.version }}'
+assert_contains "$CI" '/bin/bash deploy/tests/image-publish-summary-test.sh'
+assert_contains "$CI" 'id: checkout'
+assert_contains "$CI" 'id: buildx'
+assert_contains "$CI" 'id: build'
+assert_contains "$CI" 'id: scan'
+assert_contains "$CI" 'id: credentials'
+assert_contains "$CI" 'id: login'
+assert_contains "$CI" 'id: push'
+assert_contains "$CI" 'name: Resolve published image digest'
+assert_contains "$CI" "--format '{{json .Manifest}}'"
+assert_contains "$CI" "if: steps.push.outcome == 'success'"
+assert_contains "$CI" 'continue-on-error: true'
+assert_contains "$CI" 'name: Publish image summary'
+assert_count "$CI" 'if: always()' 2
+assert_contains "$CI" 'bash deploy/image-publish-summary.sh'
+assert_contains "$CI" 'IMAGE_DIGEST: ${{ steps.digest.outputs.digest }}'
+assert_contains "$CI" 'PUSH_OUTCOME: ${{ steps.push.outcome }}'
+assert_contains "$IMAGE_SUMMARY" 'GITHUB_STEP_SUMMARY'
 assert_not_contains "$SECURITY" "node-version: '20'"
 assert_contains "$SECURITY" "node-version: '24'"
 assert_contains "$CI" 'trivyignores: .trivyignore.yaml'
