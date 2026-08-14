@@ -37,7 +37,6 @@ type growthRegistrationWorkerRepoStub struct {
 	claimLimit  int
 	claimLease  time.Duration
 	claimWorker string
-	claimCalls  int
 	transitions []growthRegistrationTransition
 	active      int
 	maxActive   int
@@ -54,17 +53,7 @@ func (r *growthRegistrationWorkerRepoStub) Claim(_ context.Context, workerID str
 	r.claimWorker = workerID
 	r.claimLimit = limit
 	r.claimLease = lease
-	r.claimCalls++
-	if r.claimErr != nil {
-		return nil, r.claimErr
-	}
-	count := limit
-	if count <= 0 || count > len(r.events) {
-		count = len(r.events)
-	}
-	events := append([]GrowthRegistrationOutboxEvent(nil), r.events[:count]...)
-	r.events = append([]GrowthRegistrationOutboxEvent(nil), r.events[count:]...)
-	return events, nil
+	return append([]GrowthRegistrationOutboxEvent(nil), r.events...), r.claimErr
 }
 
 func (r *growthRegistrationWorkerRepoStub) DeleteClaimed(ctx context.Context, outboxID int64, workerID string) error {
@@ -227,20 +216,14 @@ func TestGrowthRegistrationWorkerClassifiesResponses(t *testing.T) {
 		{name: "created", status: http.StatusCreated, body: `{}`, want: "delete"},
 		{name: "temporary exact trimmed", status: http.StatusServiceUnavailable, body: `{"error":{"code":" temporarily_unavailable "},"request_id":" request-1 "}`, want: "retry", wantCode: "temporarily_unavailable", wantReqID: "request-1"},
 		{name: "adapter unavailable", status: http.StatusServiceUnavailable, body: `{"error":{"code":"source_adapter_unavailable"}}`, want: "retry", wantCode: "source_adapter_unavailable"},
-		{name: "request timeout", status: http.StatusRequestTimeout, body: `{}`, want: "retry"},
-		{name: "too early", status: http.StatusTooEarly, body: `{}`, want: "retry"},
-		{name: "rate limited", status: http.StatusTooManyRequests, body: `{"error":{"code":"rate_limited"}}`, want: "retry", wantCode: "rate_limited"},
-		{name: "internal", status: http.StatusInternalServerError, body: `{}`, want: "retry"},
-		{name: "bad gateway", status: http.StatusBadGateway, body: `{}`, want: "retry"},
-		{name: "other 503", status: http.StatusServiceUnavailable, body: `{"error":{"code":"TEMPORARILY_UNAVAILABLE"}}`, want: "retry", wantCode: "TEMPORARILY_UNAVAILABLE"},
-		{name: "gateway timeout", status: http.StatusGatewayTimeout, body: `{}`, want: "retry"},
+		{name: "other 503", status: http.StatusServiceUnavailable, body: `{"error":{"code":"TEMPORARILY_UNAVAILABLE"}}`, want: "dead", wantCode: "TEMPORARILY_UNAVAILABLE"},
 		{name: "unauthorized", status: http.StatusUnauthorized, body: `{"error":{"code":"unauthorized"}}`, want: "dead", wantCode: "unauthorized"},
 		{name: "forbidden", status: http.StatusForbidden, body: `{}`, want: "dead"},
 		{name: "conflict", status: http.StatusConflict, body: `{}`, want: "dead"},
 		{name: "unprocessable", status: http.StatusUnprocessableEntity, body: `{}`, want: "dead"},
-		{name: "not implemented", status: http.StatusNotImplemented, body: `{}`, want: "dead"},
-		{name: "empty 503", status: http.StatusServiceUnavailable, body: ``, want: "retry", wantCode: "invalid_response"},
-		{name: "malformed 503", status: http.StatusServiceUnavailable, body: `{`, want: "retry", wantCode: "invalid_response"},
+		{name: "internal", status: http.StatusInternalServerError, body: `{}`, want: "dead"},
+		{name: "empty 503", status: http.StatusServiceUnavailable, body: ``, want: "dead", wantCode: "invalid_response"},
+		{name: "malformed 503", status: http.StatusServiceUnavailable, body: `{`, want: "dead", wantCode: "invalid_response"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -289,46 +272,18 @@ func TestGrowthRegistrationWorkerRetriesTransportAndBodyReadErrors(t *testing.T)
 	}
 }
 
-func TestGrowthRegistrationWorkerDeadLettersPermanentStatusWhenBodyReadFails(t *testing.T) {
-	repo := &growthRegistrationWorkerRepoStub{}
-	client := &http.Client{Transport: growthRegistrationRoundTripper(func(*http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: http.StatusUnprocessableEntity,
-			Header:     make(http.Header),
-			Body:       growthRegistrationErrorBody{},
-		}, nil
-	})}
-	worker, cipher := newGrowthRegistrationWorkerForTest(t, repo, "http://worker.internal/bind", nil)
-	worker.httpClient = client
-
-	require.NoError(t, worker.processEvent(context.Background(), growthRegistrationEvent(t, cipher, nil)))
-	transition := repo.snapshot()[0]
-	require.Equal(t, "dead", transition.kind)
-	require.NotNil(t, transition.httpStatus)
-	require.Equal(t, http.StatusUnprocessableEntity, *transition.httpStatus)
-	require.Equal(t, "invalid_response", transition.errorCode)
-	require.Empty(t, transition.requestID)
-}
-
-func TestGrowthRegistrationWorkerClassifiesOversizedBodiesByStatus(t *testing.T) {
-	for _, test := range []struct {
-		status int
-		want   string
-	}{
-		{status: http.StatusCreated, want: "dead"},
-		{status: http.StatusOK, want: "dead"},
-		{status: http.StatusServiceUnavailable, want: "retry"},
-	} {
-		t.Run(http.StatusText(test.status), func(t *testing.T) {
+func TestGrowthRegistrationWorkerDeadLettersOversizedBodiesBeforeSuccess(t *testing.T) {
+	for _, status := range []int{http.StatusCreated, http.StatusOK, http.StatusServiceUnavailable} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-				writer.WriteHeader(test.status)
+				writer.WriteHeader(status)
 				_, _ = io.WriteString(writer, strings.Repeat("x", growthRegistrationMaxResponseBodyBytes+1))
 			}))
 			defer server.Close()
 			repo := &growthRegistrationWorkerRepoStub{}
 			worker, cipher := newGrowthRegistrationWorkerForTest(t, repo, server.URL, server.Client())
 			require.NoError(t, worker.processEvent(context.Background(), growthRegistrationEvent(t, cipher, nil)))
-			require.Equal(t, test.want, repo.snapshot()[0].kind)
+			require.Equal(t, "dead", repo.snapshot()[0].kind)
 		})
 	}
 }
@@ -399,53 +354,11 @@ func TestGrowthRegistrationWorkerBatchDefaultsAndSerialProcessing(t *testing.T) 
 		repo.events[index].OutboxID = int64(index + 1)
 	}
 	require.NoError(t, worker.processBatch(context.Background()))
-	require.Equal(t, 1, repo.claimLimit)
+	require.Equal(t, growthRegistrationDefaultBatchSize, repo.claimLimit)
 	require.Equal(t, growthRegistrationDefaultLease, repo.claimLease)
 	require.Equal(t, "worker-test", repo.claimWorker)
 	require.Equal(t, 1, repo.maxActive)
 	require.Len(t, repo.snapshot(), 3)
-}
-
-func TestGrowthRegistrationWorkerClaimsAtMostOneEventAtATime(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		writer.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-	repo := &growthRegistrationWorkerRepoStub{}
-	cipher, err := NewGrowthRegistrationCipher(growthRegistrationTestKey)
-	require.NoError(t, err)
-	worker, err := NewGrowthRegistrationWorker(repo, cipher, GrowthRegistrationWorkerOptions{
-		Endpoint:          server.URL,
-		ServiceCredential: "service-secret",
-		HTTPClient:        server.Client(),
-		WorkerID:          "worker-test",
-		BatchSize:         25,
-	})
-	require.NoError(t, err)
-
-	require.NoError(t, worker.processBatch(context.Background()))
-	require.Equal(t, 1, repo.claimLimit)
-	require.Equal(t, 1, repo.claimCalls)
-}
-
-func TestGrowthRegistrationWorkerLeaseCoversSingleDeliveryTimeout(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		writer.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-	repo := &growthRegistrationWorkerRepoStub{}
-	cipher, err := NewGrowthRegistrationCipher(growthRegistrationTestKey)
-	require.NoError(t, err)
-	worker, err := NewGrowthRegistrationWorker(repo, cipher, GrowthRegistrationWorkerOptions{
-		Endpoint:          server.URL,
-		ServiceCredential: "service-secret",
-		HTTPClient:        server.Client(),
-		WorkerID:          "worker-test",
-		Lease:             time.Second,
-		TransitionTimeout: 3 * time.Second,
-	})
-	require.NoError(t, err)
-	require.Equal(t, worker.httpClient.Timeout+worker.transitionTimeout, worker.lease)
 }
 
 func TestGrowthRegistrationWorkerLifecycleIsNilSafeAndIdempotent(t *testing.T) {

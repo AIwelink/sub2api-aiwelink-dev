@@ -169,7 +169,6 @@ describe('OAuthCallbackView', () => {
         access_token: 'token-1',
       },
     })
-
     const wrapper = mount(OAuthCallbackView)
     await vi.dynamicImportSettled()
     const passwordInputs = wrapper.findAll('input[type="password"]')

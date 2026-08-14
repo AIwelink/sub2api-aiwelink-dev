@@ -34,8 +34,8 @@
 ### 开发工具
 
 ```bash
-# golangci-lint（CI 用 v2.9，本地建议装同一版以免版本差异带来的噪音）
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.9
+# golangci-lint v2.7
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.7
 
 # pnpm (前端包管理)
 npm install -g pnpm
@@ -47,13 +47,14 @@ npm install -g pnpm
 
 | Workflow | 触发条件 | 检查内容 |
 |----------|----------|----------|
-| **backend-ci.yml** | push, pull_request | 单元测试 + 集成测试 + golangci-lint v2.9 |
+| **backend-ci.yml** | push, pull_request | 单元测试 + 集成测试 + golangci-lint v2.7 |
 | **security-scan.yml** | push, pull_request, 每周一 | govulncheck + gosec + pnpm audit |
 | **release.yml** | tag `v*` | 构建发布（PR 不触发） |
 
 ### CI 要求
 
-- Go 版本由 `backend/go.mod` 统一声明为 **1.26.6**：`backend-ci.yml`、`security-scan.yml` 和 `release.yml` 都通过 `go-version-file` 自动读取，`release.yml` 还会硬断言实际工具链版本。升级 Go 时需同步修改 `backend/go.mod`、`release.yml` 中的断言、三个 Dockerfile 及 README 中的版本展示。
+- Go 版本以 `backend/go.mod` 为基准，当前为 **1.26.6**；`backend-ci.yml` 和 `security-scan.yml` 会自动读取该文件
+- 升级 Go 时需同步更新三个 Dockerfile 和 `release.yml` 的版本校验；CI contract 会检查它们是否一致
 - 前端使用 `pnpm install --frozen-lockfile`，必须提交 `pnpm-lock.yaml`
 
 ### 本地测试命令

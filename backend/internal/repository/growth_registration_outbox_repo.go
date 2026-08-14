@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/google/uuid"
 )
@@ -35,11 +34,10 @@ func (r *growthRegistrationOutboxRepository) RecordSuccessfulRegistration(
 	registeredAt time.Time,
 	growthSessionCiphertext *string,
 ) error {
-	exec, err := r.sqlExecutor(ctx)
-	if err != nil {
+	if err := r.validateDatabase(); err != nil {
 		return err
 	}
-	_, err = exec.ExecContext(ctx, `
+	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO growth_registration_outbox (
 			source_registration_id,
 			site_id,
@@ -61,11 +59,10 @@ func (r *growthRegistrationOutboxRepository) Claim(
 	limit int,
 	lease time.Duration,
 ) ([]service.GrowthRegistrationOutboxEvent, error) {
-	exec, err := r.sqlExecutor(ctx)
-	if err != nil {
+	if err := r.validateDatabase(); err != nil {
 		return nil, err
 	}
-	workerID, err = normalizeGrowthRegistrationWorkerID(workerID)
+	workerID, err := normalizeGrowthRegistrationWorkerID(workerID)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +79,7 @@ func (r *growthRegistrationOutboxRepository) Claim(
 		}
 	}
 
-	rows, err := exec.QueryContext(ctx, `
+	rows, err := r.db.QueryContext(ctx, `
 		WITH candidates AS (
 			SELECT outbox_id
 			FROM growth_registration_outbox
@@ -148,15 +145,14 @@ func (r *growthRegistrationOutboxRepository) DeleteClaimed(
 	outboxID int64,
 	workerID string,
 ) error {
-	exec, err := r.sqlExecutor(ctx)
+	if err := r.validateDatabase(); err != nil {
+		return err
+	}
+	workerID, err := normalizeGrowthRegistrationWorkerID(workerID)
 	if err != nil {
 		return err
 	}
-	workerID, err = normalizeGrowthRegistrationWorkerID(workerID)
-	if err != nil {
-		return err
-	}
-	result, err := exec.ExecContext(ctx, `
+	result, err := r.db.ExecContext(ctx, `
 		DELETE FROM growth_registration_outbox
 		WHERE outbox_id = $1
 		  AND claimed_by = $2
@@ -177,15 +173,14 @@ func (r *growthRegistrationOutboxRepository) RetryClaimed(
 	errorCode string,
 	requestID string,
 ) error {
-	exec, err := r.sqlExecutor(ctx)
+	if err := r.validateDatabase(); err != nil {
+		return err
+	}
+	workerID, err := normalizeGrowthRegistrationWorkerID(workerID)
 	if err != nil {
 		return err
 	}
-	workerID, err = normalizeGrowthRegistrationWorkerID(workerID)
-	if err != nil {
-		return err
-	}
-	result, err := exec.ExecContext(ctx, `
+	result, err := r.db.ExecContext(ctx, `
 		UPDATE growth_registration_outbox
 		SET attempt_count = attempt_count + 1,
 			available_at = $3,
@@ -219,15 +214,14 @@ func (r *growthRegistrationOutboxRepository) DeadLetterClaimed(
 	errorCode string,
 	requestID string,
 ) error {
-	exec, err := r.sqlExecutor(ctx)
+	if err := r.validateDatabase(); err != nil {
+		return err
+	}
+	workerID, err := normalizeGrowthRegistrationWorkerID(workerID)
 	if err != nil {
 		return err
 	}
-	workerID, err = normalizeGrowthRegistrationWorkerID(workerID)
-	if err != nil {
-		return err
-	}
-	result, err := exec.ExecContext(ctx, `
+	result, err := r.db.ExecContext(ctx, `
 		UPDATE growth_registration_outbox
 		SET attempt_count = attempt_count + 1,
 			last_http_status = $3,
@@ -253,18 +247,11 @@ func (r *growthRegistrationOutboxRepository) DeadLetterClaimed(
 	return requireGrowthRegistrationClaim(result, outboxID)
 }
 
-func (r *growthRegistrationOutboxRepository) sqlExecutor(ctx context.Context) (sqlQueryExecutor, error) {
+func (r *growthRegistrationOutboxRepository) validateDatabase() error {
 	if r == nil || r.db == nil {
-		return nil, errors.New("nil growth registration outbox database")
+		return errors.New("nil growth registration outbox database")
 	}
-	if tx := dbent.TxFromContext(ctx); tx != nil {
-		exec := sqlExecutorFromEntClient(tx.Client())
-		if exec == nil {
-			return nil, errors.New("growth registration outbox transaction executor is unavailable")
-		}
-		return exec, nil
-	}
-	return r.db, nil
+	return nil
 }
 
 func normalizeGrowthRegistrationWorkerID(workerID string) (string, error) {

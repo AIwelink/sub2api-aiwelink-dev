@@ -18,9 +18,7 @@ export interface PendingRegistrationData extends RegisterRequest {
 const LEGACY_STORAGE_KEY = 'register_data'
 let pendingRegistrationData: PendingRegistrationData | null = null
 
-function clonePendingRegistrationData(
-  data: PendingRegistrationData
-): PendingRegistrationData {
+function clonePendingRegistrationData(data: PendingRegistrationData): PendingRegistrationData {
   return {
     ...data,
     pending_adoption_decision: data.pending_adoption_decision
@@ -64,8 +62,6 @@ export function clearPendingRegistrationCaptchaProof(): void {
   }
 
   delete pendingRegistrationData.turnstile_token
-  delete pendingRegistrationData.tencent_captcha_ticket
-  delete pendingRegistrationData.tencent_captcha_randstr
 }
 
 export function clearPendingRegistrationData(): void {
