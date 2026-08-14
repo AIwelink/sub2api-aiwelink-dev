@@ -76,6 +76,36 @@ func TestSetOAuthPendingSessionCookieUsesProviderCompletionPathPrefix(t *testing
 	require.Equal(t, "/api/v1/auth/oauth", cookie.Path)
 }
 
+func TestCaptureOAuthAffiliateCodeUsesHttpOnlyCookie(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	ginCtx, _ := gin.CreateTestContext(recorder)
+	ginCtx.Request = httptest.NewRequest(http.MethodGet, "/api/v1/auth/oauth/oidc/start?aff_code=AFF123", nil)
+
+	captureOAuthAffiliateCode(ginCtx, true)
+
+	cookie := findCookie(recorder.Result().Cookies(), oauthAffiliateCodeCookieName)
+	require.NotNil(t, cookie)
+	require.Equal(t, "/api/v1/auth/oauth", cookie.Path)
+	require.Equal(t, oauthPendingCookieMaxAgeSec, cookie.MaxAge)
+	require.True(t, cookie.HttpOnly)
+	require.True(t, cookie.Secure)
+	require.Equal(t, http.SameSiteLaxMode, cookie.SameSite)
+
+	readCtx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	readCtx.Request = httptest.NewRequest(http.MethodGet, "/api/v1/auth/oauth/oidc/callback", nil)
+	readCtx.Request.AddCookie(cookie)
+	require.Equal(t, "AFF123", readOAuthAffiliateCode(readCtx))
+}
+
+func TestPendingOAuthAffiliateCodeReadsServerSession(t *testing.T) {
+	session := &dbent.PendingAuthSession{
+		LocalFlowState: map[string]any{oauthAffiliateCodeStateKey: "AFF456"},
+	}
+
+	require.Equal(t, "AFF456", pendingOAuthAffiliateCode(session))
+	require.Empty(t, pendingOAuthAffiliateCode(nil))
+}
+
 func TestExchangePendingOAuthCompletionPreviewThenFinalizeAppliesAdoptionDecision(t *testing.T) {
 	handler, client := newOAuthPendingFlowTestHandler(t, false)
 	ctx := context.Background()

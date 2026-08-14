@@ -12,8 +12,21 @@ import {
   shouldMarkAdminUIRequest,
   shouldMarkUserUIRequest,
 } from './adminUIRequest'
+import {
+  refreshAuthTokens,
+  TOKEN_REFRESH_SESSION_CHANGED
+} from './tokenRefresh'
 import { getAPIBaseURL } from './url'
+import {
+  clearInMemoryRefreshToken,
+  getInMemoryRefreshToken
+} from './authSecrets'
 export { buildApiUrl, buildGatewayUrl } from './url'
+
+type AuthenticatedRequestConfig = InternalAxiosRequestConfig & {
+  _retry?: boolean
+  _authUserID?: number | null
+}
 
 // ==================== Axios Instance Configuration ====================
 
@@ -26,28 +39,6 @@ export const apiClient: AxiosInstance = axios.create({
   }
 })
 
-// ==================== Token Refresh State ====================
-
-// Track if a token refresh is in progress to prevent multiple simultaneous refresh requests
-let isRefreshing = false
-// Queue of requests waiting for token refresh
-let refreshSubscribers: Array<(token: string) => void> = []
-
-/**
- * Subscribe to token refresh completion
- */
-function subscribeTokenRefresh(callback: (token: string) => void): void {
-  refreshSubscribers.push(callback)
-}
-
-/**
- * Notify all subscribers that token has been refreshed
- */
-function onTokenRefreshed(token: string): void {
-  refreshSubscribers.forEach((callback) => callback(token))
-  refreshSubscribers = []
-}
-
 // ==================== Request Interceptor ====================
 
 // Get user's timezone
@@ -59,8 +50,25 @@ const getUserTimezone = (): string => {
   }
 }
 
+const getStoredUserID = (): number | null => {
+  const rawUser = localStorage.getItem('auth_user')
+  if (!rawUser) {
+    return null
+  }
+
+  try {
+    const id = Number((JSON.parse(rawUser) as { id?: unknown }).id)
+    return Number.isFinite(id) && id > 0 ? id : null
+  } catch {
+    return null
+  }
+}
+
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    const authenticatedConfig = config as AuthenticatedRequestConfig
+    authenticatedConfig._authUserID = getStoredUserID()
+
     // Attach token from localStorage
     const token = localStorage.getItem('auth_token')
     if (token && config.headers) {
@@ -128,7 +136,7 @@ apiClient.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
+    const originalRequest = error.config as AuthenticatedRequestConfig
 
     // Handle common errors
     if (error.response) {
@@ -184,83 +192,58 @@ apiClient.interceptors.response.use(
       // 401: Try to refresh the token if we have a refresh token
       // This handles TOKEN_EXPIRED, INVALID_TOKEN, TOKEN_REVOKED, etc.
       if (status === 401 && !originalRequest._retry) {
-        const refreshToken = localStorage.getItem('refresh_token')
+        if (
+          originalRequest._authUserID !== undefined &&
+          originalRequest._authUserID !== getStoredUserID()
+        ) {
+          return Promise.reject({
+            status: 401,
+            code: TOKEN_REFRESH_SESSION_CHANGED,
+            message: 'Authentication session changed before the response was handled.'
+          })
+        }
+
+        const refreshToken = getInMemoryRefreshToken()
         const isAuthEndpoint =
           url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/refresh')
 
         // If we have a refresh token and this is not an auth endpoint, try to refresh
         if (refreshToken && !isAuthEndpoint) {
-          if (isRefreshing) {
-            // Wait for the ongoing refresh to complete
-            return new Promise((resolve, reject) => {
-              subscribeTokenRefresh((newToken: string) => {
-                if (newToken) {
-                  // Mark as retried to prevent infinite loop if retry also returns 401
-                  originalRequest._retry = true
-                  if (originalRequest.headers) {
-                    originalRequest.headers.Authorization = `Bearer ${newToken}`
-                  }
-                  resolve(apiClient(originalRequest))
-                } else {
-                  // Refresh failed, reject with original error
-                  reject({
-                    status,
-                    code: apiData.code,
-                    message: apiData.message || apiData.detail || error.message
-                  })
-                }
-              })
-            })
-          }
-
           originalRequest._retry = true
-          isRefreshing = true
+          const refreshUserIDSnapshot = getStoredUserID()
 
           try {
-            // Call refresh endpoint directly to avoid circular dependency
-            const refreshResponse = await axios.post(
-              `${getAPIBaseURL()}/auth/refresh`,
-              { refresh_token: refreshToken },
-              // 显式设置超时：裸 axios 默认无限等待，若刷新请求挂起会导致 isRefreshing
-              // 永远为 true，所有排队的 401 重试请求永久卡死，页面 loading 无法恢复。
-              { headers: { 'Content-Type': 'application/json' }, timeout: 30000 }
-            )
-
-            const refreshData = refreshResponse.data as ApiResponse<{
-              access_token: string
-              refresh_token: string
-              expires_in: number
-            }>
-
-            if (refreshData.code === 0 && refreshData.data) {
-              const { access_token, refresh_token: newRefreshToken, expires_in } = refreshData.data
-
-              // Update tokens in localStorage (convert expires_in to timestamp)
-              localStorage.setItem('auth_token', access_token)
-              localStorage.setItem('refresh_token', newRefreshToken)
-              localStorage.setItem('token_expires_at', String(Date.now() + expires_in * 1000))
-
-              // Notify subscribers with new token
-              onTokenRefreshed(access_token)
-
-              // Retry the original request with new token
-              if (originalRequest.headers) {
-                originalRequest.headers.Authorization = `Bearer ${access_token}`
-              }
-
-              isRefreshing = false
-              return apiClient(originalRequest)
+            const headers = originalRequest.headers as Record<string, unknown> | undefined
+            const authHeader = headers?.Authorization ?? headers?.authorization
+            const failedAccessToken =
+              typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+                ? authHeader.slice('Bearer '.length)
+                : null
+            const tokens = await refreshAuthTokens({ failedAccessToken })
+            // Retry the original request with the refreshed token.
+            if (originalRequest.headers) {
+              originalRequest.headers.Authorization = `Bearer ${tokens.access_token}`
+            }
+            return apiClient(originalRequest)
+          } catch (refreshError) {
+            // A stale request must never destroy a session that was logged out or replaced while
+            // its refresh was in flight (for example, when another tab signs in as another user).
+            const sessionChanged =
+              (refreshError as { code?: unknown }).code === TOKEN_REFRESH_SESSION_CHANGED ||
+              getInMemoryRefreshToken() !== refreshToken ||
+              getStoredUserID() !== refreshUserIDSnapshot
+            if (sessionChanged) {
+              return Promise.reject({
+                status: 401,
+                code: TOKEN_REFRESH_SESSION_CHANGED,
+                message: 'Session changed while refreshing authentication.'
+              })
             }
 
-            // Refresh response was not successful, fall through to clear auth
-            throw new Error('Token refresh failed')
-          } catch (refreshError) {
-            // Refresh failed - notify subscribers with empty token
-            onTokenRefreshed('')
-            isRefreshing = false
-
             // Clear tokens and redirect to login
+            clearInMemoryRefreshToken()
             localStorage.removeItem('auth_token')
+            // Remove refresh tokens left by older frontend versions.
             localStorage.removeItem('refresh_token')
             localStorage.removeItem('auth_user')
             localStorage.removeItem('token_expires_at')
@@ -289,7 +272,9 @@ apiClient.interceptors.response.use(
               ? authHeader.length > 0
               : !!authHeader
 
+        clearInMemoryRefreshToken()
         localStorage.removeItem('auth_token')
+        // Remove refresh tokens left by older frontend versions.
         localStorage.removeItem('refresh_token')
         localStorage.removeItem('auth_user')
         localStorage.removeItem('token_expires_at')

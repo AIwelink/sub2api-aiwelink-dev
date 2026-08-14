@@ -5,7 +5,12 @@ ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 CI="$ROOT_DIR/.github/workflows/backend-ci.yml"
 SECURITY="$ROOT_DIR/.github/workflows/security-scan.yml"
 TRIVY_IGNORE="$ROOT_DIR/.trivyignore.yaml"
+GO_MOD="$ROOT_DIR/backend/go.mod"
+DEV_GUIDE="$ROOT_DIR/DEV_GUIDE.md"
+ROOT_DOCKERFILE="$ROOT_DIR/Dockerfile"
 BACKEND_DOCKERFILE="$ROOT_DIR/backend/Dockerfile"
+DEPLOY_DOCKERFILE="$ROOT_DIR/deploy/Dockerfile"
+README_FILES=("$ROOT_DIR/README.md" "$ROOT_DIR/README_CN.md" "$ROOT_DIR/README_JA.md")
 RELEASE="$ROOT_DIR/.github/workflows/release.yml"
 GROWTH_CANARY="$ROOT_DIR/.github/workflows/growth-public-canary.yml"
 GROWTH_CANARY_SCRIPT="$ROOT_DIR/deploy/tests/growth-public-canary.sh"
@@ -64,6 +69,22 @@ assert_count "$TRIVY_IGNORE" 'expired_at: 2026-09-11' 1
 assert_count "$TRIVY_IGNORE" 'expired_at: 2026-10-06' 2
 assert_count "$TRIVY_IGNORE" 'expired_at: 2026-11-11' 1
 assert_not_contains "$TRIVY_IGNORE" 'backend/Dockerfile'
+
+GO_VERSION=$(awk '$1 == "go" { print $2; exit }' "$GO_MOD")
+[ -n "$GO_VERSION" ] || {
+  printf 'missing Go version in %s\n' "$GO_MOD" >&2
+  exit 1
+}
+assert_contains "$ROOT_DOCKERFILE" "ARG GOLANG_IMAGE=golang:${GO_VERSION}-alpine"
+assert_contains "$BACKEND_DOCKERFILE" "FROM golang:${GO_VERSION}-alpine"
+assert_contains "$DEPLOY_DOCKERFILE" "ARG GOLANG_IMAGE=golang:${GO_VERSION}-alpine"
+assert_contains "$RELEASE" "go version | grep -q 'go${GO_VERSION}'"
+assert_contains "$DEV_GUIDE" "当前为 **${GO_VERSION}**"
+for README in "${README_FILES[@]}"; do
+  assert_contains "$README" "Go-${GO_VERSION}-00ADD8.svg"
+  assert_contains "$README" "Go ${GO_VERSION}"
+done
+
 assert_contains "$BACKEND_DOCKERFILE" 'USER sub2api'
 assert_contains "$RELEASE" 'Verify release commit belongs to main'
 assert_contains "$RELEASE" 'Verify successful ci-gate for release commit'
@@ -84,7 +105,7 @@ assert_contains "$GROWTH_CANARY_SCRIPT" '^[a-hj-km-np-z2-9]{8}$'
 assert_contains "$MAKEFILE" 'pnpm --dir frontend run test:run'
 assert_contains "$MAKEFILE" 'pnpm --dir frontend run build'
 assert_not_contains "$MAKEFILE" 'FRONTEND_CRITICAL_VITEST'
-assert_contains "$ROOT_DIR/Dockerfile" 'ARG NODE_IMAGE=node:24-alpine'
+assert_contains "$ROOT_DOCKERFILE" 'ARG NODE_IMAGE=node:24-alpine'
 test ! -e "$ROOT_DIR/.github/workflows/publish-aiwelink-dev-image.yml"
 test ! -e "$ROOT_DIR/.github/workflows/cla.yml"
 

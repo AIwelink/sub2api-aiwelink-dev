@@ -1,6 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import EmailVerifyView from '@/views/auth/EmailVerifyView.vue'
+import { clearPendingRegistrationData, getPendingRegistrationData } from '@/utils/pendingRegistration'
 
 const {
   pushMock,
@@ -111,6 +112,7 @@ describe('EmailVerifyView', () => {
     persistOAuthTokenContextMock.mockReset()
     apiClientPostMock.mockReset()
     authStoreState.pendingAuthSession = null
+    clearPendingRegistrationData()
     sessionStorage.clear()
     localStorage.clear()
 
@@ -158,6 +160,45 @@ describe('EmailVerifyView', () => {
       pending_auth_token: 'pending-token-1',
     })
     expect(sendVerifyCodeMock).not.toHaveBeenCalled()
+  })
+
+  it('requires a fresh captcha proof after the initial send-code request fails', async () => {
+    getPublicSettingsMock.mockResolvedValue({
+      turnstile_enabled: true,
+      turnstile_site_key: 'site-key',
+      site_name: 'Sub2API',
+      registration_email_suffix_whitelist: [],
+    })
+    sendVerifyCodeMock.mockRejectedValueOnce(new Error('send failed'))
+    sessionStorage.setItem(
+      'register_data',
+      JSON.stringify({
+        email: 'fresh@example.com',
+        password: 'secret-123',
+        turnstile_token: 'initial-proof',
+      })
+    )
+
+    const wrapper = mount(EmailVerifyView, {
+      global: {
+        stubs: {
+          AuthLayout: { template: '<div><slot /><slot name="footer" /></div>' },
+          Icon: true,
+          TurnstileWidget: {
+            template: '<div data-testid="resend-captcha" />',
+          },
+          transition: false,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(sendVerifyCodeMock).toHaveBeenCalledWith(expect.objectContaining({
+      turnstile_token: 'initial-proof',
+    }))
+    expect(wrapper.find('[data-testid="resend-captcha"]').exists()).toBe(true)
+    expect(getPendingRegistrationData()?.turnstile_token).toBeUndefined()
   })
 
   it('skips the registration email suffix whitelist for pending oauth verification', async () => {

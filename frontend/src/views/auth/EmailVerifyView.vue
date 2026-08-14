@@ -173,6 +173,11 @@ import {
   loadAffiliateReferralCode,
   oauthAffiliatePayload
 } from '@/utils/oauthAffiliate'
+import {
+  clearPendingRegistrationCaptchaProof,
+  clearPendingRegistrationData,
+  getPendingRegistrationData
+} from '@/utils/pendingRegistration'
 
 const { t, locale } = useI18n()
 
@@ -192,7 +197,7 @@ const verifyCode = ref<string>('')
 const countdown = ref<number>(0)
 let countdownTimer: ReturnType<typeof setInterval> | null = null
 
-// Registration data from sessionStorage
+// Sensitive registration data is kept in memory for this document session.
 type PendingAuthTokenField = 'pending_auth_token' | 'pending_oauth_token'
 type PendingAuthSessionSummary = {
   token: string
@@ -257,11 +262,9 @@ watch(validationToastMessage, (value, previousValue) => {
 onMounted(async () => {
   const activePendingSession = authStore.pendingAuthSession as PendingAuthSessionSummary | null
 
-  // Load registration data from sessionStorage
-  const registerDataStr = sessionStorage.getItem('register_data')
-  if (registerDataStr) {
+  const registerData = getPendingRegistrationData()
+  if (registerData) {
     try {
-      const registerData = JSON.parse(registerDataStr)
       email.value = registerData.email || ''
       password.value = registerData.password || ''
       initialTurnstileToken.value = registerData.turnstile_token || ''
@@ -398,6 +401,7 @@ function persistPendingOAuthSession(provider: string, redirect?: string): void {
 async function sendCode(): Promise<void> {
   isSendingCode.value = true
   errorMessage.value = ''
+  let submittedCaptchaProof = ''
 
   try {
     if (!shouldBypassRegistrationEmailPolicy() && !isRegistrationEmailSuffixAllowed(email.value, registrationEmailSuffixWhitelist.value)) {
@@ -406,21 +410,24 @@ async function sendCode(): Promise<void> {
       return
     }
 
+    const turnstileToken = resendTurnstileToken.value || initialTurnstileToken.value || ''
+    submittedCaptchaProof = turnstileToken
     const requestPayload = {
       email: email.value,
       [pendingAuthTokenField.value]: pendingAuthToken.value || undefined,
       // 优先使用重发时新获取的 token（因为初始 token 可能已被使用）
-      turnstile_token: resendTurnstileToken.value || initialTurnstileToken.value || undefined
+      turnstile_token: turnstileToken || undefined
     } as Parameters<typeof sendVerifyCode>[0]
     const response = isPendingOAuthFlow()
       ? await sendPendingOAuthVerifyCode(requestPayload)
       : await sendVerifyCode(requestPayload)
+    clearPendingRegistrationCaptchaProof()
 
     const pendingSendCodeSession = isPendingOAuthFlow()
       ? getPendingOAuthSendCodeSessionResponse(response as PendingOAuthSendVerifyCodeResponse)
       : null
     if (pendingSendCodeSession) {
-      sessionStorage.removeItem('register_data')
+      clearPendingRegistrationData()
       persistPendingOAuthSession(
         pendingSendCodeSession.provider || pendingProvider.value,
         pendingSendCodeSession.redirect,
@@ -439,6 +446,13 @@ async function sendCode(): Promise<void> {
     showResendTurnstile.value = false
     resendTurnstileToken.value = ''
   } catch (error: unknown) {
+    if (submittedCaptchaProof) {
+      // The server may consume a proof before returning an error. Require a fresh proof.
+      clearPendingRegistrationCaptchaProof()
+      initialTurnstileToken.value = ''
+      resendTurnstileToken.value = ''
+      showResendTurnstile.value = turnstileEnabled.value
+    }
     errorMessage.value = buildAuthErrorMessage(error, {
       fallback: t('auth.sendCodeFailed')
     })
@@ -521,7 +535,7 @@ async function handleVerify(): Promise<void> {
         payload
       )
       if (isPendingOAuthSessionResponse(data)) {
-        sessionStorage.removeItem('register_data')
+        clearPendingRegistrationData()
         persistPendingOAuthSession(data.provider || pendingProvider.value, data.redirect)
         await router.push(resolvePendingOAuthCallbackRoute(data.provider || pendingProvider.value))
         return
@@ -547,7 +561,7 @@ async function handleVerify(): Promise<void> {
     }
 
     // Clear session data
-    sessionStorage.removeItem('register_data')
+    clearPendingRegistrationData()
     clearAllAffiliateReferralCodes()
 
     // Show success toast
@@ -568,7 +582,7 @@ async function handleVerify(): Promise<void> {
 
 function handleBack(): void {
   // Clear session data
-  sessionStorage.removeItem('register_data')
+  clearPendingRegistrationData()
 
   // Go back to registration
   router.push('/register')

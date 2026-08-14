@@ -348,6 +348,7 @@ import {
   loadAffiliateReferralCode,
   resolveAffiliateReferralCode
 } from '@/utils/oauthAffiliate'
+import { setPendingRegistrationData } from '@/utils/pendingRegistration'
 import type { LoginAgreementDocument } from '@/types'
 
 const { t, locale } = useI18n()
@@ -886,18 +887,14 @@ async function handleRegister(): Promise<void> {
 
     // If email verification is enabled, redirect to verification page
     if (emailVerifyEnabled.value) {
-      // Store registration data in sessionStorage
-      sessionStorage.setItem(
-        'register_data',
-        JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          turnstile_token: turnstileToken.value,
-          promo_code: formData.promo_code || undefined,
-          invitation_code: formData.invitation_code || undefined,
-          ...(affCode ? { aff_code: affCode } : {})
-        })
-      )
+      setPendingRegistrationData({
+        email: formData.email,
+        password: formData.password,
+        turnstile_token: turnstileToken.value,
+        promo_code: formData.promo_code || undefined,
+        invitation_code: formData.invitation_code || undefined,
+        ...(affCode ? { aff_code: affCode } : {})
+      })
 
       // Navigate to email verification page
       await router.push('/email-verify')

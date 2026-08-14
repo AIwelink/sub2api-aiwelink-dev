@@ -53,7 +53,8 @@ npm install -g pnpm
 
 ### CI 要求
 
-- Go 版本必须是 **1.25.7**
+- Go 版本以 `backend/go.mod` 为基准，当前为 **1.26.6**；`backend-ci.yml` 和 `security-scan.yml` 会自动读取该文件
+- 升级 Go 时需同步更新三个 Dockerfile 和 `release.yml` 的版本校验；CI contract 会检查它们是否一致
 - 前端使用 `pnpm install --frozen-lockfile`，必须提交 `pnpm-lock.yaml`
 
 ### 本地测试命令

@@ -4,6 +4,13 @@
  */
 
 import { apiClient } from './client'
+import { refreshAuthTokens, type RefreshTokenResponse } from './tokenRefresh'
+import {
+  clearInMemoryRefreshToken,
+  getInMemoryRefreshToken,
+  setInMemoryRefreshToken
+} from './authSecrets'
+export type { RefreshTokenResponse } from './tokenRefresh'
 import type {
   LoginRequest,
   RegisterRequest,
@@ -36,10 +43,10 @@ export function setAuthToken(token: string): void {
 }
 
 /**
- * Store refresh token in localStorage
+ * Keep the rotating refresh token out of persistent browser storage.
  */
 export function setRefreshToken(token: string): void {
-  localStorage.setItem('refresh_token', token)
+  setInMemoryRefreshToken(token)
 }
 
 /**
@@ -59,10 +66,10 @@ export function getAuthToken(): string | null {
 }
 
 /**
- * Get refresh token from localStorage
+ * Get the refresh token for the current document session.
  */
 export function getRefreshToken(): string | null {
-  return localStorage.getItem('refresh_token')
+  return getInMemoryRefreshToken()
 }
 
 /**
@@ -77,7 +84,9 @@ export function getTokenExpiresAt(): number | null {
  * Clear authentication token from localStorage
  */
 export function clearAuthToken(): void {
+  clearInMemoryRefreshToken()
   localStorage.removeItem('auth_token')
+  // Remove refresh tokens left by older frontend versions.
   localStorage.removeItem('refresh_token')
   localStorage.removeItem('auth_user')
   localStorage.removeItem('token_expires_at')
@@ -174,16 +183,6 @@ export async function logout(): Promise<void> {
   }
 
   clearAuthToken()
-}
-
-/**
- * Refresh token response
- */
-export interface RefreshTokenResponse {
-  access_token: string
-  refresh_token: string
-  expires_in: number
-  token_type: string
 }
 
 export interface OAuthTokenResponse {
@@ -293,21 +292,7 @@ export async function prepareOAuthBindAccessTokenCookie(): Promise<void> {
  * @returns New token pair
  */
 export async function refreshToken(): Promise<RefreshTokenResponse> {
-  const currentRefreshToken = getRefreshToken()
-  if (!currentRefreshToken) {
-    throw new Error('No refresh token available')
-  }
-
-  const { data } = await apiClient.post<RefreshTokenResponse>('/auth/refresh', {
-    refresh_token: currentRefreshToken
-  })
-
-  // Update tokens in localStorage
-  setAuthToken(data.access_token)
-  setRefreshToken(data.refresh_token)
-  setTokenExpiresAt(data.expires_in)
-
-  return data
+  return refreshAuthTokens()
 }
 
 /**
