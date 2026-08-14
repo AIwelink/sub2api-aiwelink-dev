@@ -22,6 +22,15 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+func TestRedactedProxyForLog(t *testing.T) {
+	const secret = "super-secret"
+	got := redactedProxyForLog("https://alice:" + secret + "@proxy.example:8443")
+	require.Equal(t, "https://alice:xxxxx@proxy.example:8443", got)
+	require.NotContains(t, got, secret)
+	require.Equal(t, directProxyKey, redactedProxyForLog(""))
+	require.Equal(t, "<invalid-proxy-url>", redactedProxyForLog("://broken"))
+}
+
 func TestHTTPUpstreamDoCanDisableRedirectsPerRequest(t *testing.T) {
 	var redirectedCalls atomic.Int64
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

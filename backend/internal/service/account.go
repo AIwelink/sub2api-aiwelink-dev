@@ -6,6 +6,7 @@ import (
 	"errors"
 	"hash/fnv"
 	"log/slog"
+	"math"
 	"reflect"
 	"sort"
 	"strconv"
@@ -2392,10 +2393,7 @@ func ComputeQuotaResetAt(extra map[string]any) {
 
 	// 日配额固定重置时间
 	if mode, _ := extra["quota_daily_reset_mode"].(string); mode == "fixed" {
-		hour := int(parseExtraFloat64(extra["quota_daily_reset_hour"]))
-		if hour < 0 || hour > 23 {
-			hour = 0
-		}
+		hour := parseBoundedExtraInt(extra["quota_daily_reset_hour"], 0, 23, 0)
 		resetAt := nextFixedDailyReset(hour, tz, now)
 		extra["quota_daily_reset_at"] = resetAt.UTC().Format(time.RFC3339)
 	} else {
@@ -2406,15 +2404,9 @@ func ComputeQuotaResetAt(extra map[string]any) {
 	if mode, _ := extra["quota_weekly_reset_mode"].(string); mode == "fixed" {
 		day := 1 // 默认周一
 		if d, ok := extra["quota_weekly_reset_day"]; ok {
-			day = int(parseExtraFloat64(d))
+			day = parseBoundedExtraInt(d, 0, 6, 1)
 		}
-		if day < 0 || day > 6 {
-			day = 1
-		}
-		hour := int(parseExtraFloat64(extra["quota_weekly_reset_hour"]))
-		if hour < 0 || hour > 23 {
-			hour = 0
-		}
+		hour := parseBoundedExtraInt(extra["quota_weekly_reset_hour"], 0, 23, 0)
 		resetAt := nextFixedWeeklyReset(day, hour, tz, now)
 		extra["quota_weekly_reset_at"] = resetAt.UTC().Format(time.RFC3339)
 	} else {
@@ -2443,10 +2435,7 @@ func NormalizeFixedQuotaWindows(extra map[string]any) {
 	}
 
 	if mode, _ := extra["quota_daily_reset_mode"].(string); mode == "fixed" && parseExtraFloat64(extra["quota_daily_limit"]) > 0 {
-		hour := int(parseExtraFloat64(extra["quota_daily_reset_hour"]))
-		if hour < 0 || hour > 23 {
-			hour = 0
-		}
+		hour := parseBoundedExtraInt(extra["quota_daily_reset_hour"], 0, 23, 0)
 		lastReset := lastFixedDailyReset(hour, tz, now)
 		start := parseExtraTime(extra["quota_daily_start"])
 		if start.IsZero() || start.Before(lastReset) {
@@ -2458,15 +2447,9 @@ func NormalizeFixedQuotaWindows(extra map[string]any) {
 	if mode, _ := extra["quota_weekly_reset_mode"].(string); mode == "fixed" && parseExtraFloat64(extra["quota_weekly_limit"]) > 0 {
 		day := 1
 		if rawDay, ok := extra["quota_weekly_reset_day"]; ok {
-			day = int(parseExtraFloat64(rawDay))
+			day = parseBoundedExtraInt(rawDay, 0, 6, 1)
 		}
-		if day < 0 || day > 6 {
-			day = 1
-		}
-		hour := int(parseExtraFloat64(extra["quota_weekly_reset_hour"]))
-		if hour < 0 || hour > 23 {
-			hour = 0
-		}
+		hour := parseBoundedExtraInt(extra["quota_weekly_reset_hour"], 0, 23, 0)
 		lastReset := lastFixedWeeklyReset(day, hour, tz, now)
 		start := parseExtraTime(extra["quota_weekly_start"])
 		if start.IsZero() || start.Before(lastReset) {
@@ -2495,8 +2478,7 @@ func ValidateQuotaResetConfig(extra map[string]any) error {
 	}
 	// 日配额重置小时
 	if v, ok := extra["quota_daily_reset_hour"]; ok {
-		hour := int(parseExtraFloat64(v))
-		if hour < 0 || hour > 23 {
+		if _, ok := boundedExtraInt(v, 0, 23); !ok {
 			return errors.New("quota_daily_reset_hour must be between 0 and 23")
 		}
 	}
@@ -2508,15 +2490,13 @@ func ValidateQuotaResetConfig(extra map[string]any) error {
 	}
 	// 周配额重置星期几
 	if v, ok := extra["quota_weekly_reset_day"]; ok {
-		day := int(parseExtraFloat64(v))
-		if day < 0 || day > 6 {
+		if _, ok := boundedExtraInt(v, 0, 6); !ok {
 			return errors.New("quota_weekly_reset_day must be between 0 (Sunday) and 6 (Saturday)")
 		}
 	}
 	// 周配额重置小时
 	if v, ok := extra["quota_weekly_reset_hour"]; ok {
-		hour := int(parseExtraFloat64(v))
-		if hour < 0 || hour > 23 {
+		if _, ok := boundedExtraInt(v, 0, 23); !ok {
 			return errors.New("quota_weekly_reset_hour must be between 0 and 23")
 		}
 	}
@@ -2802,6 +2782,22 @@ func parseExtraFloat64(value any) float64 {
 		}
 	}
 	return 0
+}
+
+func parseBoundedExtraInt(value any, minValue, maxValue, fallback int) int {
+	parsed, ok := boundedExtraInt(value, minValue, maxValue)
+	if !ok {
+		return fallback
+	}
+	return parsed
+}
+
+func boundedExtraInt(value any, minValue, maxValue int) (int, bool) {
+	parsed := math.Trunc(parseExtraFloat64(value))
+	if math.IsNaN(parsed) || math.IsInf(parsed, 0) || parsed < float64(minValue) || parsed > float64(maxValue) {
+		return 0, false
+	}
+	return int(parsed), true
 }
 
 func parseExtraTime(value any) time.Time {
