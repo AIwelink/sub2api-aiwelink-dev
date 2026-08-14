@@ -24,6 +24,7 @@ jobs:
         run: |
           /bin/bash -n deploy/apple-container.sh
           /bin/bash deploy/tests/apple-container-test.sh
+          /bin/bash deploy/tests/image-publish-summary-test.sh
           /bin/sh deploy/tests/docker-compose-security-test.sh
           /bin/sh deploy/tests/docker-runtime-resources-test.sh
           /bin/sh deploy/test-caddyfile-cache.sh
@@ -250,9 +251,11 @@ jobs:
       REGISTRY: docker.aiwelink.cc
       IMAGE_NAME: docker.aiwelink.cc/sub2api-aiwelink-dev
     steps:
-      - uses: actions/checkout@v6
+      - id: checkout
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
+        id: buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Read application version
@@ -291,6 +294,7 @@ jobs:
           echo "scan-ref=${IMAGE_NAME}:${PREFIX}-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
 
       - name: Build branch image locally
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -307,6 +311,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=aiwelink-image-${{ github.ref_name }}
 
       - name: Scan branch image before publish
+        id: scan
         uses: aquasecurity/trivy-action@2736533278103862a861f4a35ebac3e97854d956
         with:
           version: v0.73.0
@@ -318,6 +323,7 @@ jobs:
           exit-code: '1'
 
       - name: Verify registry credentials
+        id: credentials
         env:
           REGISTRY_USERNAME: ${{ secrets.AIWELINK_REGISTRY_USERNAME }}
           REGISTRY_PASSWORD: ${{ secrets.AIWELINK_REGISTRY_PASSWORD }}
@@ -328,6 +334,7 @@ jobs:
           fi
 
       - name: Log in to AIWeLink registry
+        id: login
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -335,6 +342,7 @@ jobs:
           password: ${{ secrets.AIWELINK_REGISTRY_PASSWORD }}
 
       - name: Push tested branch tags
+        id: push
         env:
           IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
         shell: bash
@@ -344,3 +352,68 @@ jobs:
               docker push "$tag"
             fi
           done <<< "$IMAGE_TAGS"
+
+      - name: Resolve published image digest
+        id: digest
+        if: steps.push.outcome == 'success'
+        continue-on-error: true
+        env:
+          IMMUTABLE_IMAGE: ${{ steps.image.outputs.scan-ref }}
+        shell: bash
+        run: |
+          MANIFEST="$(docker buildx imagetools inspect "$IMMUTABLE_IMAGE" --format '{{json .Manifest}}')"
+          DIGEST="$(jq -r '.digest // empty' <<<"$MANIFEST")"
+          if ! [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Unable to resolve a valid digest for $IMMUTABLE_IMAGE"
+            exit 1
+          fi
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Publish image summary
+        if: always()
+        env:
+          APPLICATION_VERSION: ${{ steps.version.outputs.version }}
+          IMAGE_DIGEST: ${{ steps.digest.outputs.digest }}
+          CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
+          BUILDX_OUTCOME: ${{ steps.buildx.outcome }}
+          VERSION_OUTCOME: ${{ steps.version.outcome }}
+          META_OUTCOME: ${{ steps.meta.outcome }}
+          IMAGE_OUTCOME: ${{ steps.image.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          SCAN_OUTCOME: ${{ steps.scan.outcome }}
+          CREDENTIALS_OUTCOME: ${{ steps.credentials.outcome }}
+          LOGIN_OUTCOME: ${{ steps.login.outcome }}
+          PUSH_OUTCOME: ${{ steps.push.outcome }}
+          DIGEST_OUTCOME: ${{ steps.digest.outcome }}
+        shell: bash
+        run: |
+          if [ -f deploy/image-publish-summary.sh ]; then
+            bash deploy/image-publish-summary.sh
+            exit 0
+          fi
+
+          if [ "$GITHUB_REF_NAME" = aiwelink-dev ]; then
+            MUTABLE_TAG="$IMAGE_NAME:dev"
+            IMMUTABLE_TAG="$IMAGE_NAME:dev-${GITHUB_SHA::12}"
+          else
+            MUTABLE_TAG="$IMAGE_NAME:latest"
+            IMMUTABLE_TAG="$IMAGE_NAME:main-${GITHUB_SHA::12}"
+          fi
+          FAILURE_STAGE=checkout
+          if [ "${CHECKOUT_OUTCOME:-skipped}" = success ]; then
+            FAILURE_STAGE=summary-script
+          fi
+          {
+            printf '## AIWeLink image publication\n\n'
+            printf '| Field | Value |\n| --- | --- |\n'
+            printf '| Publish status | `failure` |\n'
+            printf '| Failure stage | `%s` |\n' "$FAILURE_STAGE"
+            printf '| Branch | `%s` |\n' "$GITHUB_REF_NAME"
+            printf '| Commit | `%s` |\n' "$GITHUB_SHA"
+            printf '| Application version | `unknown` |\n'
+            printf '| Upstream version | `unknown` |\n'
+            printf '| Mutable tag | `%s` |\n' "$MUTABLE_TAG"
+            printf '| Immutable tag | `%s` |\n' "$IMMUTABLE_TAG"
+            printf '| Digest | `unavailable` |\n\n'
+            printf 'Image was not published; pull commands are unavailable.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
