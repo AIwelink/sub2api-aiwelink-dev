@@ -285,7 +285,7 @@ Show a secret-safe `docker exec` command that prints public growth settings and 
 Show the `/r/{code}` browser flow, email registration, Traffic binding verification, and the requirement that the browser sends `awl_growth_sid` to the Sub2API registration request.
 
 ## Outbox 排障
-Show a PostgreSQL query for pending/dead-letter rows without exposing encrypted sessions. Explain terminal `401/403`, `404`, `422`, `decrypt_failed`, and retryable `408/425/429/500/502/503/504` outcomes.
+Show a PostgreSQL query for pending/dead-letter rows without exposing encrypted sessions. Explain `401/403`, `404`, `422`, `decrypt_failed`, and retryable `503` outcomes.
 
 ## 更新和回滚
 Show changing only the immutable image tag, running `pull` and `up -d`, and reverting to the previous immutable tag without changing the database.

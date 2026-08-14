@@ -19,7 +19,7 @@ func buildOpenAICompatAnthropicDigestChain(req *apicompat.AnthropicRequest) stri
 		return ""
 	}
 
-	var parts []string
+	parts := make([]string, 0, len(req.Messages)+1)
 	if len(req.System) > 0 && strings.TrimSpace(string(req.System)) != "" && strings.TrimSpace(string(req.System)) != "null" {
 		parts = append(parts, "s:"+shortHash(req.System))
 	}

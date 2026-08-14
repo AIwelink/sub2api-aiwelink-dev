@@ -1302,7 +1302,7 @@ func applyCodexClientMetadata(reqBody map[string]any, account *Account) bool {
 		if strings.TrimSpace(existing[key]) != "" {
 			return false
 		}
-		next := make(map[string]any)
+		next := make(map[string]any, len(existing)+1)
 		for k, v := range existing {
 			next[k] = v
 		}
