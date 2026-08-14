@@ -207,10 +207,10 @@ LIMIT 50;
 | `404` | endpoint 或反代路径错误 | 必须使用本文的 `/internal/growth/registrations/bind` |
 | `422` | `site_id`、会话或请求数据不被 Traffic 接受 | 核对 Traffic 的 `aiwelink` 站点配置和 Cookie 来源 |
 | `decrypt_failed` | 领取任务的实例使用了不同 outbox 密钥 | 统一所有共库实例的 outbox 密钥 |
-| `503` 且错误码为 `temporarily_unavailable` 或 `source_adapter_unavailable` | Traffic 暂时不可用 | Sub2API 自动退避重试 |
+| `408` / `425` / `429` / `500` / `502` / `503` / `504` | Traffic 或链路暂时不可用 | Sub2API 自动退避重试；即使响应体为空、畸形或超大，也按 HTTP 状态重试 |
 | 网络、DNS 或 TLS 错误 | 请求尚未到达 Traffic | Sub2API 自动重试；检查容器网络和 DNS |
 
-`401`、`403`、`404`、`422` 和 `decrypt_failed` 会进入死信，且加密会话会被清除；修复配置后应使用新邮箱重新执行一次完整推广注册验收，旧死信不会自动恢复。
+`401`、`403`、`404`、`422`、其他非临时 HTTP 状态和 `decrypt_failed` 会进入死信，且加密会话会被清除；修复配置后应使用新邮箱重新执行一次完整推广注册验收，旧死信不会自动恢复。
 
 ## 更新和回滚
 
