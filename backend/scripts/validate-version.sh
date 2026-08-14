@@ -51,8 +51,7 @@ if [ "$#" -eq 1 ]; then
     echo "release tag must not be empty" >&2
     exit 1
   fi
-  TAG="${1#v}"
-  if [ "$TAG" != "$VERSION" ]; then
+  if [ "$1" != "v$VERSION" ]; then
     echo "release tag ${1} does not match VERSION $VERSION" >&2
     exit 1
   fi

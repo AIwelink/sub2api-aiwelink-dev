@@ -118,6 +118,10 @@ cp "$VERSION_RESOLVER" "$version_fixture/backend/scripts/resolve-version.sh"
 printf '%s\n' "$repo_version" > "$version_fixture/backend/cmd/server/VERSION"
 printf '%s\n' "$repo_upstream_version" > "$version_fixture/backend/cmd/server/UPSTREAM_VERSION"
 "$version_fixture/backend/scripts/validate-version.sh" "v$repo_version" >/dev/null
+if "$version_fixture/backend/scripts/validate-version.sh" "$repo_version" >/dev/null 2>&1; then
+  printf 'release tag without v prefix unexpectedly passed version validation\n' >&2
+  exit 1
+fi
 if "$version_fixture/backend/scripts/validate-version.sh" "v$repo_upstream_version" >/dev/null 2>&1; then
   printf 'official upstream tag v%s unexpectedly passed AIWeLink validation\n' "$repo_upstream_version" >&2
   exit 1

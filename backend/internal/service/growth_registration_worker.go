@@ -125,6 +125,10 @@ func NewGrowthRegistrationWorker(
 	if options.TransitionTimeout <= 0 {
 		options.TransitionTimeout = growthRegistrationTransitionTimeout
 	}
+	minimumLease := httpClient.Timeout + options.TransitionTimeout
+	if options.Lease < minimumLease {
+		options.Lease = minimumLease
+	}
 	if options.Now == nil {
 		options.Now = func() time.Time { return time.Now().UTC() }
 	}
@@ -313,11 +317,15 @@ func (w *GrowthRegistrationWorker) processBatch(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	events, err := w.repository.Claim(ctx, w.workerID, w.batchSize, w.lease)
-	if err != nil {
-		return fmt.Errorf("claim growth registration outbox: %w", err)
-	}
-	for _, event := range events {
+	for processed := 0; processed < w.batchSize; processed++ {
+		events, err := w.repository.Claim(ctx, w.workerID, 1, w.lease)
+		if err != nil {
+			return fmt.Errorf("claim growth registration outbox: %w", err)
+		}
+		if len(events) == 0 {
+			return nil
+		}
+		event := events[0]
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -331,6 +339,21 @@ func (w *GrowthRegistrationWorker) processBatch(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func isGrowthRegistrationRetryableStatus(status int) bool {
+	switch status {
+	case http.StatusRequestTimeout,
+		http.StatusTooEarly,
+		http.StatusTooManyRequests,
+		http.StatusInternalServerError,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusGatewayTimeout:
+		return true
+	default:
+		return false
+	}
 }
 
 func (w *GrowthRegistrationWorker) processEvent(
@@ -362,12 +385,18 @@ func (w *GrowthRegistrationWorker) processEvent(
 	}
 	defer func() { _ = response.Body.Close() }()
 
+	status := response.StatusCode
 	responseBody, err := io.ReadAll(io.LimitReader(response.Body, growthRegistrationMaxResponseBodyBytes+1))
 	if err != nil {
+		if status != http.StatusOK && status != http.StatusCreated && !isGrowthRegistrationRetryableStatus(status) {
+			return w.deadLetter(event, &status, "invalid_response", "")
+		}
 		return w.retry(event, nil, "", "")
 	}
-	status := response.StatusCode
 	if len(responseBody) > growthRegistrationMaxResponseBodyBytes {
+		if isGrowthRegistrationRetryableStatus(status) {
+			return w.retry(event, &status, "invalid_response", "")
+		}
 		return w.deadLetter(event, &status, "invalid_response", "")
 	}
 	if status == http.StatusOK || status == http.StatusCreated {
@@ -379,8 +408,7 @@ func (w *GrowthRegistrationWorker) processEvent(
 		errorCode = "invalid_response"
 		requestID = ""
 	}
-	if status == http.StatusServiceUnavailable &&
-		(errorCode == "temporarily_unavailable" || errorCode == "source_adapter_unavailable") {
+	if isGrowthRegistrationRetryableStatus(status) {
 		return w.retry(event, &status, errorCode, requestID)
 	}
 	return w.deadLetter(event, &status, errorCode, requestID)

@@ -68,24 +68,27 @@ func (r *userRepository) create(ctx context.Context, userIn *service.User, guard
 		return nil
 	}
 
-	// 统一使用 ent 的事务：保证用户与允许分组的更新原子化，
-	// 并避免基于 *sql.Tx 手动构造 ent client 导致的 ExecQuerier 断言错误。
-	tx, err := r.client.Tx(ctx)
-	if err != nil && !errors.Is(err, dbent.ErrTxStarted) {
-		return err
-	}
-
-	var txClient *dbent.Client
-	txCtx := ctx
-	if err == nil {
-		defer func() { _ = tx.Rollback() }()
-		txClient = tx.Client()
-		txCtx = dbent.NewTxContext(ctx, tx)
+	// Reuse a caller-owned Ent transaction before asking the base client to
+	// start one. This keeps user creation and adjacent writes atomic.
+	var (
+		tx       *dbent.Tx
+		txClient *dbent.Client
+		txCtx    = ctx
+		err      error
+	)
+	if existingTx := dbent.TxFromContext(ctx); existingTx != nil {
+		txClient = existingTx.Client()
 	} else {
-		// 已处于外部事务中（ErrTxStarted），复用当前事务 client 并由调用方负责提交/回滚。
-		if existingTx := dbent.TxFromContext(ctx); existingTx != nil {
-			txClient = existingTx.Client()
+		tx, err = r.client.Tx(ctx)
+		if err != nil && !errors.Is(err, dbent.ErrTxStarted) {
+			return err
+		}
+		if err == nil {
+			defer func() { _ = tx.Rollback() }()
+			txClient = tx.Client()
+			txCtx = dbent.NewTxContext(ctx, tx)
 		} else {
+			tx = nil
 			txClient = r.client
 		}
 	}

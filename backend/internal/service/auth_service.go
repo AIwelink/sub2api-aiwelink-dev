@@ -151,6 +151,9 @@ func (s *AuthService) SetGrowthRegistrationRecorder(recorder GrowthRegistrationR
 	if s == nil {
 		return
 	}
+	if runtime, ok := recorder.(*GrowthRegistrationRuntime); ok && (runtime == nil || runtime.recorder == nil) {
+		recorder = nil
+	}
 	s.growthRegistration = recorder
 }
 
@@ -253,7 +256,8 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 		Status:       StatusActive,
 	}
 
-	if err := s.createUserWithRegistrationEmailGuard(ctx, user); err != nil {
+	token, err := s.createUserAndRecordGrowth(ctx, user)
+	if err != nil {
 		// 优先检查邮箱冲突错误（竞态条件下可能发生）
 		switch {
 		case errors.Is(err, ErrEmailExists):
@@ -301,18 +305,64 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 		}
 	}
 
-	// 生成token
-	token, err := s.GenerateToken(ctx, user)
-	if err != nil {
-		return "", nil, fmt.Errorf("generate token: %w", err)
-	}
-	if s.growthRegistration != nil {
-		if err := s.growthRegistration.RecordSuccessfulRegistration(ctx, user); err != nil {
-			logger.LegacyPrintf("service.auth", "[Auth] Failed to record growth registration for user %d: %v", user.ID, err)
+	// Growth-enabled registration generates the token inside the user/outbox
+	// transaction. The native path keeps its original post-registration order.
+	if token == "" {
+		token, err = s.GenerateToken(ctx, user)
+		if err != nil {
+			return "", nil, fmt.Errorf("generate token: %w", err)
 		}
 	}
-
 	return token, user, nil
+}
+
+// createUserAndRecordGrowth keeps token generation, the user row, and its
+// durable growth event in one transaction when growth registration is active.
+// An empty token means the native registration path was used.
+func (s *AuthService) createUserAndRecordGrowth(ctx context.Context, user *User) (string, error) {
+	if s == nil || s.userRepo == nil {
+		return "", ErrServiceUnavailable
+	}
+	if s.growthRegistration == nil {
+		return "", s.createUserWithRegistrationEmailGuard(ctx, user)
+	}
+	if s.entClient == nil {
+		return "", errors.New("growth registration requires transactional Ent client")
+	}
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		if err := s.createUserWithRegistrationEmailGuard(ctx, user); err != nil {
+			return "", err
+		}
+		token, err := s.GenerateToken(ctx, user)
+		if err != nil {
+			return "", fmt.Errorf("generate token: %w", err)
+		}
+		if err := s.growthRegistration.RecordSuccessfulRegistration(ctx, user); err != nil {
+			return "", fmt.Errorf("record growth registration: %w", err)
+		}
+		return token, nil
+	}
+
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return "", fmt.Errorf("begin registration transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+	if err := s.createUserWithRegistrationEmailGuard(txCtx, user); err != nil {
+		return "", err
+	}
+	token, err := s.GenerateToken(txCtx, user)
+	if err != nil {
+		return "", fmt.Errorf("generate token: %w", err)
+	}
+	if err := s.growthRegistration.RecordSuccessfulRegistration(txCtx, user); err != nil {
+		return "", fmt.Errorf("record growth registration: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return "", fmt.Errorf("commit registration transaction: %w", err)
+	}
+	return token, nil
 }
 
 // SendVerifyCodeResult 发送验证码返回结果
