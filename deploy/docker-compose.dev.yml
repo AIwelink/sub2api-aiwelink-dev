@@ -46,7 +46,6 @@ services:
       - JWT_SECRET=${JWT_SECRET:-}
       - SETUP_MIGRATION_TIMEOUT_SECONDS=${SETUP_MIGRATION_TIMEOUT_SECONDS:-0}
       - TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY:-}
-      # Growth registration attribution (optional, disabled by default)
       - GROWTH_REGISTRATION_ENABLED=${GROWTH_REGISTRATION_ENABLED:-false}
       - GROWTH_REGISTRATION_ENDPOINT=${GROWTH_REGISTRATION_ENDPOINT:-http://traffic:8081/internal/growth/registrations/bind}
       - GROWTH_REGISTRATION_REFERRAL_BASE_URL=${GROWTH_REGISTRATION_REFERRAL_BASE_URL:-https://aiwelink.cc/r}

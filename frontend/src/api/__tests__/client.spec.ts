@@ -312,7 +312,42 @@ describe('API Client', () => {
   // --- 401 Token 刷新 ---
 
   describe('401 Token 刷新', () => {
-    it('uses an in-memory refresh token and keeps the rotated token out of storage', async () => {
+    it('无 refresh_token 时 401 清除 localStorage', async () => {
+      localStorage.setItem('auth_token', 'expired-token')
+      // 不设置 refresh_token
+
+      // Mock window.location
+      const originalLocation = window.location
+      Object.defineProperty(window, 'location', {
+        value: { ...originalLocation, pathname: '/dashboard', href: '/dashboard' },
+        writable: true,
+      })
+
+      const adapter = vi.fn().mockRejectedValue({
+        response: {
+          status: 401,
+          data: { code: 'TOKEN_EXPIRED', message: 'Token expired' },
+        },
+        config: {
+          url: '/test',
+          headers: { Authorization: 'Bearer expired-token' },
+        },
+        code: 'ERR_BAD_REQUEST',
+      })
+      apiClient.defaults.adapter = adapter
+
+      await expect(apiClient.get('/test')).rejects.toBeDefined()
+
+      expect(localStorage.getItem('auth_token')).toBeNull()
+
+      // 恢复 location
+      Object.defineProperty(window, 'location', {
+        value: originalLocation,
+        writable: true,
+      })
+    })
+
+    it('有 refresh_token 时刷新并重试原请求', async () => {
       localStorage.setItem('auth_token', 'expired-token')
       const { getInMemoryRefreshToken, setInMemoryRefreshToken } = await import('@/api/authSecrets')
       setInMemoryRefreshToken('refresh-token')
@@ -358,251 +393,50 @@ describe('API Client', () => {
       expect(localStorage.getItem('auth_token')).toBe('new-token')
       expect(getInMemoryRefreshToken()).toBe('new-refresh-token')
       expect(localStorage.getItem('refresh_token')).toBeNull()
+      expect(adapter.mock.calls[1][0].headers.get('Authorization')).toBe('Bearer new-token')
     })
 
-    it('does not restore a session that logged out while refresh was in flight', async () => {
-      localStorage.setItem('auth_token', 'expired-token')
-      localStorage.setItem('auth_user', JSON.stringify({ id: 7 }))
-      const { clearInMemoryRefreshToken, setInMemoryRefreshToken } = await import('@/api/authSecrets')
-      setInMemoryRefreshToken('refresh-token')
-
-      let resolveRefresh!: (value: unknown) => void
-      vi.spyOn(axios, 'post').mockImplementationOnce(
-        () => new Promise((resolve) => {
-          resolveRefresh = resolve
-        })
-      )
-      const adapter = vi.fn()
-        .mockRejectedValueOnce({
-          response: {
-            status: 401,
-            data: { code: 'TOKEN_EXPIRED', message: 'Token expired' },
-          },
-          config: {
-            url: '/test',
-            headers: { Authorization: 'Bearer expired-token' },
-          },
-          code: 'ERR_BAD_REQUEST',
-        })
-        .mockResolvedValueOnce({
-          status: 200,
-          data: { code: 0, data: { ok: true } },
-          headers: {},
-          config: {},
-          statusText: 'OK',
-        })
-      apiClient.defaults.adapter = adapter
-
-      const pendingRequest = apiClient.get('/test')
-      await vi.waitFor(() => expect(axios.post).toHaveBeenCalledTimes(1))
-
-      localStorage.clear()
-      clearInMemoryRefreshToken()
-      resolveRefresh({
-        data: {
-          code: 0,
-          data: {
-            access_token: 'new-token',
-            refresh_token: 'new-refresh-token',
-            expires_in: 3600,
-          },
-        },
-      })
-
-      await expect(pendingRequest).rejects.toEqual(
-        expect.objectContaining({ code: 'TOKEN_REFRESH_SESSION_CHANGED' })
-      )
-      expect(adapter).toHaveBeenCalledTimes(1)
-      expect(localStorage.getItem('auth_token')).toBeNull()
-    })
-
-    it('does not overwrite a different account that logs in while refresh is in flight', async () => {
-      localStorage.setItem('auth_token', 'expired-token')
-      localStorage.setItem('auth_user', JSON.stringify({ id: 7 }))
-      const { setInMemoryRefreshToken } = await import('@/api/authSecrets')
-      setInMemoryRefreshToken('refresh-token')
-
-      let resolveRefresh!: (value: unknown) => void
-      vi.spyOn(axios, 'post').mockImplementationOnce(
-        () => new Promise((resolve) => {
-          resolveRefresh = resolve
-        })
-      )
-      const adapter = vi.fn()
-        .mockRejectedValueOnce({
-          response: {
-            status: 401,
-            data: { code: 'TOKEN_EXPIRED', message: 'Token expired' },
-          },
-          config: {
-            url: '/test',
-            headers: { Authorization: 'Bearer expired-token' },
-          },
-          code: 'ERR_BAD_REQUEST',
-        })
-        .mockResolvedValueOnce({
-          status: 200,
-          data: { code: 0, data: { ok: true } },
-          headers: {},
-          config: {},
-          statusText: 'OK',
-        })
-      apiClient.defaults.adapter = adapter
-
-      const pendingRequest = apiClient.get('/test')
-      await vi.waitFor(() => expect(axios.post).toHaveBeenCalledTimes(1))
-
-      localStorage.setItem('auth_token', 'account-b-token')
-      localStorage.setItem('auth_user', JSON.stringify({ id: 8 }))
-      setInMemoryRefreshToken('account-b-refresh-token')
-      resolveRefresh({
-        data: {
-          code: 0,
-          data: {
-            access_token: 'account-a-new-token',
-            refresh_token: 'account-a-new-refresh-token',
-            expires_in: 3600,
-          },
-        },
-      })
-
-      await expect(pendingRequest).rejects.toEqual(
-        expect.objectContaining({ code: 'TOKEN_REFRESH_SESSION_CHANGED' })
-      )
-      expect(adapter).toHaveBeenCalledTimes(1)
-      expect(localStorage.getItem('auth_token')).toBe('account-b-token')
-      expect(localStorage.getItem('auth_user')).toBe(JSON.stringify({ id: 8 }))
-      expect((await import('@/api/authSecrets')).getInMemoryRefreshToken()).toBe('account-b-refresh-token')
-    })
-
-    it('does not replay a request after another account replaces the session before 401 handling', async () => {
-      localStorage.setItem('auth_token', 'account-a-token')
-      localStorage.setItem('auth_user', JSON.stringify({ id: 7 }))
-      localStorage.setItem('token_expires_at', String(Date.now() + 3600_000))
-      const { setInMemoryRefreshToken } = await import('@/api/authSecrets')
-      setInMemoryRefreshToken('account-a-refresh-token')
-
-      let requestCount = 0
-      const adapter = vi.fn().mockImplementation(async (config) => {
-        requestCount += 1
-        if (requestCount === 1) {
-          localStorage.setItem('auth_token', 'account-b-token')
-          localStorage.setItem('auth_user', JSON.stringify({ id: 8 }))
-          setInMemoryRefreshToken('account-b-refresh-token')
-          throw {
-            response: {
-              status: 401,
-              data: { code: 'TOKEN_EXPIRED', message: 'Token expired' },
-            },
-            config,
-            code: 'ERR_BAD_REQUEST',
-          }
-        }
-
-        return {
-          status: 200,
-          data: { code: 0, data: { ok: true } },
-          headers: {},
-          config,
-          statusText: 'OK',
-        }
-      })
-      apiClient.defaults.adapter = adapter
-
-      await expect(apiClient.get('/test')).rejects.toEqual(
-        expect.objectContaining({ code: 'TOKEN_REFRESH_SESSION_CHANGED' })
-      )
-      expect(adapter).toHaveBeenCalledTimes(1)
-      expect(localStorage.getItem('auth_token')).toBe('account-b-token')
-      expect((await import('@/api/authSecrets')).getInMemoryRefreshToken()).toBe('account-b-refresh-token')
-    })
-
-    it('ignores profile metadata changes while refresh is in flight', async () => {
-      localStorage.setItem('auth_token', 'expired-token')
-      localStorage.setItem('auth_user', JSON.stringify({ id: 7, username: 'before' }))
+    it('刷新期间换号时旧请求不会清除新会话', async () => {
+      localStorage.setItem('auth_token', 'user-a-access')
       const { getInMemoryRefreshToken, setInMemoryRefreshToken } = await import('@/api/authSecrets')
-      setInMemoryRefreshToken('refresh-token')
+      setInMemoryRefreshToken('user-a-refresh')
+      localStorage.setItem('token_expires_at', String(Date.now() - 1))
+      localStorage.setItem('auth_user', JSON.stringify({ id: 7 }))
 
-      let resolveRefresh!: (value: unknown) => void
-      vi.spyOn(axios, 'post').mockImplementationOnce(
-        () => new Promise((resolve) => {
-          resolveRefresh = resolve
-        })
-      )
-      const adapter = vi.fn()
-        .mockRejectedValueOnce({
-          response: {
-            status: 401,
-            data: { code: 'TOKEN_EXPIRED', message: 'Token expired' },
-          },
-          config: {
-            url: '/test',
-            headers: { Authorization: 'Bearer expired-token' },
-          },
-          code: 'ERR_BAD_REQUEST',
-        })
-        .mockResolvedValueOnce({
-          status: 200,
-          data: { code: 0, data: { ok: true } },
-          headers: {},
-          config: {},
-          statusText: 'OK',
-        })
-      apiClient.defaults.adapter = adapter
-
-      const pendingRequest = apiClient.get('/test')
-      await vi.waitFor(() => expect(axios.post).toHaveBeenCalledTimes(1))
-
-      localStorage.setItem('auth_user', JSON.stringify({ id: 7, username: 'after' }))
-      resolveRefresh({
-        data: {
-          code: 0,
-          data: {
-            access_token: 'new-token',
-            refresh_token: 'new-refresh-token',
-            expires_in: 3600,
-          },
-        },
-      })
-
-      await expect(pendingRequest).resolves.toMatchObject({ data: { ok: true } })
-      expect(getInMemoryRefreshToken()).toBe('new-refresh-token')
-      expect(localStorage.getItem('auth_user')).toBe(JSON.stringify({ id: 7, username: 'after' }))
-    })
-
-    it('无 refresh_token 时 401 清除 localStorage', async () => {
-      localStorage.setItem('auth_token', 'expired-token')
-      // 不设置 refresh_token
-
-      // Mock window.location
-      const originalLocation = window.location
-      Object.defineProperty(window, 'location', {
-        value: { ...originalLocation, pathname: '/dashboard', href: '/dashboard' },
-        writable: true,
-      })
-
-      const adapter = vi.fn().mockRejectedValue({
+      apiClient.defaults.adapter = vi.fn().mockRejectedValueOnce({
         response: {
           status: 401,
           data: { code: 'TOKEN_EXPIRED', message: 'Token expired' },
         },
         config: {
           url: '/test',
-          headers: { Authorization: 'Bearer expired-token' },
+          headers: { Authorization: 'Bearer user-a-access' },
         },
         code: 'ERR_BAD_REQUEST',
       })
-      apiClient.defaults.adapter = adapter
 
-      await expect(apiClient.get('/test')).rejects.toBeDefined()
+      let rejectRefresh!: (reason: Error) => void
+      vi.spyOn(axios, 'post').mockImplementationOnce(
+        () => new Promise((_resolve, reject) => {
+          rejectRefresh = reject
+        })
+      )
 
-      expect(localStorage.getItem('auth_token')).toBeNull()
+      const staleRequest = apiClient.get('/test')
+      await vi.waitFor(() => expect(axios.post).toHaveBeenCalledTimes(1))
 
-      // 恢复 location
-      Object.defineProperty(window, 'location', {
-        value: originalLocation,
-        writable: true,
-      })
+      localStorage.setItem('auth_token', 'user-b-access')
+      setInMemoryRefreshToken('user-b-refresh')
+      localStorage.setItem('token_expires_at', String(Date.now() + 3600_000))
+      localStorage.setItem('auth_user', JSON.stringify({ id: 8 }))
+      rejectRefresh(new Error('stale refresh failed'))
+
+      await expect(staleRequest).rejects.toMatchObject({ code: 'AUTH_SESSION_CHANGED' })
+      expect(localStorage.getItem('auth_token')).toBe('user-b-access')
+      expect(getInMemoryRefreshToken()).toBe('user-b-refresh')
+      expect(localStorage.getItem('refresh_token')).toBeNull()
+      expect(localStorage.getItem('auth_user')).toBe(JSON.stringify({ id: 8 }))
+      expect(window.location.pathname).toBe('/')
     })
   })
 

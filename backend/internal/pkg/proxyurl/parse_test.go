@@ -81,6 +81,17 @@ func TestParse_无效URL(t *testing.T) {
 	}
 }
 
+func TestParse_解析错误不泄漏凭据(t *testing.T) {
+	const secret = "secret_password"
+	_, _, err := Parse("http://user:" + secret + "@[::1")
+	if err == nil {
+		t.Fatal("无效 URL 应返回错误")
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Fatalf("解析错误不应包含明文密码: %s", err)
+	}
+}
+
 func TestParse_缺少Host(t *testing.T) {
 	_, _, err := Parse("http://")
 	if err == nil {

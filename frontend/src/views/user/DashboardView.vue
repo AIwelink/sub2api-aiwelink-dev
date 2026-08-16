@@ -1,24 +1,13 @@
 <template>
   <AppLayout>
-    <div class="workbench-dashboard space-y-5 md:space-y-6">
-      <section v-if="loading" class="dashboard-section" aria-busy="true">
-        <div class="dashboard-section-header">
-          <div class="skeleton h-4 w-32"></div>
-        </div>
-        <div class="dashboard-metric-grid">
-          <div v-for="index in 8" :key="index" class="dashboard-metric">
-            <div class="skeleton h-3 w-20"></div>
-            <div class="skeleton mt-4 h-7 w-24"></div>
-            <div class="skeleton mt-3 h-3 w-28"></div>
-          </div>
-        </div>
-      </section>
+    <div class="space-y-6">
+      <div v-if="loading" class="flex items-center justify-center py-12"><LoadingSpinner /></div>
       <template v-else-if="stats">
         <UserDashboardStats :stats="stats" :balance="user?.balance || 0" :is-simple="authStore.isSimpleMode" :platform-quotas="platformQuotas" />
         <UserDashboardCharts v-model:startDate="startDate" v-model:endDate="endDate" v-model:granularity="granularity" :loading="loadingCharts" :trend="trendData" :models="modelStats" @dateRangeChange="loadCharts" @granularityChange="loadCharts" @refresh="refreshAll" />
-        <div class="dashboard-section-grid grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
-          <UserDashboardRecentUsage :data="recentUsage" :loading="loadingUsage" />
-          <UserDashboardQuickActions />
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div class="lg:col-span-2"><UserDashboardRecentUsage :data="recentUsage" :loading="loadingUsage" /></div>
+          <div class="lg:col-span-1"><UserDashboardQuickActions /></div>
         </div>
       </template>
     </div>
@@ -27,7 +16,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'; import { useAuthStore } from '@/stores/auth'; import { usageAPI, type UserDashboardStats as UserStatsType } from '@/api/usage'
-import AppLayout from '@/components/layout/AppLayout.vue'
+import AppLayout from '@/components/layout/AppLayout.vue'; import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import UserDashboardStats from '@/components/user/dashboard/UserDashboardStats.vue'; import UserDashboardCharts from '@/components/user/dashboard/UserDashboardCharts.vue'
 import UserDashboardRecentUsage from '@/components/user/dashboard/UserDashboardRecentUsage.vue'; import UserDashboardQuickActions from '@/components/user/dashboard/UserDashboardQuickActions.vue'
 import type { UsageLog, TrendDataPoint, ModelStat, PlatformQuotaItem } from '@/types'

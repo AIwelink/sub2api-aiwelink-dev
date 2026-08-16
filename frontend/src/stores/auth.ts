@@ -11,8 +11,13 @@ import {
   getInMemoryRefreshToken,
   setInMemoryRefreshToken
 } from '@/api/authSecrets'
-import { TOKEN_REFRESH_SESSION_CHANGED } from '@/api/tokenRefresh'
-import type { User, LoginRequest, RegisterRequest, AuthResponse } from '@/types'
+import type {
+  User,
+  LoginRequest,
+  RegisterRequest,
+  AuthResponse,
+  ActionCaptchaRequestProof
+} from '@/types'
 
 const AUTH_TOKEN_KEY = 'auth_token'
 const AUTH_USER_KEY = 'auth_user'
@@ -280,9 +285,9 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function loginWithPasskey(): Promise<User> {
+  async function loginWithPasskey(proof?: ActionCaptchaRequestProof): Promise<User> {
     try {
-      const response = await passkeyAPI.login()
+      const response = await passkeyAPI.login(proof)
       setAuthFromResponse(response)
       return user.value!
     } catch (error) {
@@ -450,8 +455,7 @@ export const useAuthStore = defineStore('auth', () => {
       return userData
     } catch (error) {
       // If refresh fails with 401, clear auth state
-      const authError = error as { status?: number; code?: unknown }
-      if (authError.status === 401 && authError.code !== TOKEN_REFRESH_SESSION_CHANGED) {
+      if ((error as { status?: number }).status === 401) {
         clearAuth({ preservePendingAuthSession: pendingAuthSession.value !== null })
       }
       throw error

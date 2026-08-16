@@ -11,8 +11,6 @@ const AUTH_USER_KEY = 'auth_user'
 const TOKEN_EXPIRES_AT_KEY = 'token_expires_at'
 const TOKEN_REFRESH_TIMEOUT_MS = 30_000
 
-export const TOKEN_REFRESH_SESSION_CHANGED = 'TOKEN_REFRESH_SESSION_CHANGED'
-
 export interface RefreshTokenResponse {
   access_token: string
   refresh_token: string
@@ -26,6 +24,7 @@ export interface RefreshAuthTokensOptions {
 }
 
 interface AuthSnapshot {
+  accessToken: string | null
   refreshToken: string
   userID: number | null
 }
@@ -46,16 +45,6 @@ function getStoredUserID(): number | null {
   }
 }
 
-function createSessionChangedError(): Error & { code: string } {
-  const error = new Error('Session changed during token refresh') as Error & { code: string }
-  error.code = TOKEN_REFRESH_SESSION_CHANGED
-  return error
-}
-
-function isSnapshotCurrent(snapshot: AuthSnapshot): boolean {
-  return getInMemoryRefreshToken() === snapshot.refreshToken && getStoredUserID() === snapshot.userID
-}
-
 function readAuthSnapshot(): AuthSnapshot {
   const refreshToken = getInMemoryRefreshToken()
   if (!refreshToken) {
@@ -63,6 +52,7 @@ function readAuthSnapshot(): AuthSnapshot {
   }
 
   return {
+    accessToken: localStorage.getItem(AUTH_TOKEN_KEY),
     refreshToken,
     userID: getStoredUserID()
   }
@@ -99,27 +89,21 @@ function persistTokenPair(tokens: RefreshTokenResponse): void {
 }
 
 async function requestTokenPair(snapshot: AuthSnapshot): Promise<RefreshTokenResponse> {
-  let response
-  try {
-    response = await axios.post<ApiResponse<RefreshTokenResponse>>(
-      `${getAPIBaseURL()}/auth/refresh`,
-      { refresh_token: snapshot.refreshToken },
-      { headers: { 'Content-Type': 'application/json' }, timeout: TOKEN_REFRESH_TIMEOUT_MS }
-    )
-  } catch (error) {
-    if (!isSnapshotCurrent(snapshot)) {
-      throw createSessionChangedError()
-    }
-    throw error
-  }
-
+  const response = await axios.post<ApiResponse<RefreshTokenResponse>>(
+    `${getAPIBaseURL()}/auth/refresh`,
+    { refresh_token: snapshot.refreshToken },
+    { headers: { 'Content-Type': 'application/json' }, timeout: TOKEN_REFRESH_TIMEOUT_MS }
+  )
   const payload = response.data
   if (payload.code !== 0 || !payload.data) {
     throw new Error(payload.message || 'Token refresh failed')
   }
 
-  if (!isSnapshotCurrent(snapshot)) {
-    throw createSessionChangedError()
+  if (
+    getInMemoryRefreshToken() !== snapshot.refreshToken ||
+    getStoredUserID() !== snapshot.userID
+  ) {
+    throw new Error('Session changed during token refresh')
   }
 
   persistTokenPair(payload.data)

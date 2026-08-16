@@ -127,3 +127,13 @@ git diff --check
 ## Scope Guard
 
 Do not add `/r/{code}` routing to Sub2API, call `/internal/growth/logins`, alter Traffic code, or merge the existing affiliate/invitation implementation into this recorder. The only cross-service contract is the configured registration-binding endpoint.
+
+## 2026-08-14 Contract Amendment
+
+The completed Task 5 notes above describe the original fail-open recorder and are retained as implementation history. They are superseded by the following registration contract:
+
+- When growth registration is active, `AuthService` creates the user, generates the access token, and inserts the encrypted outbox event in one Ent/PostgreSQL transaction before returning success.
+- Token generation, encryption, outbox insertion, and known commit failures are fail-closed. The user and outbox event roll back together.
+- Disabled growth registration preserves the native Sub2API registration path and does not add a transaction.
+- Traffic delivery remains asynchronous. Transport failures and HTTP `408`, `425`, `429`, `500`, `502`, `503`, and `504` responses are retried; permanent statuses are dead-lettered.
+- The implementation is limited to ordinary email registration and does not replace Sub2API affiliate, invitation, OAuth, passkey, or login behavior.

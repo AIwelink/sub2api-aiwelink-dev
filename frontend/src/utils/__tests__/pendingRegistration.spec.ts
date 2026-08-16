@@ -10,7 +10,6 @@ describe('pendingRegistration', () => {
   beforeEach(() => {
     clearPendingRegistrationData()
     sessionStorage.clear()
-    localStorage.clear()
   })
 
   it('keeps passwords and captcha proofs out of browser storage', () => {
@@ -34,7 +33,9 @@ describe('pendingRegistration', () => {
     setPendingRegistrationData({
       email: 'user@example.com',
       password: 'secret-123',
-      turnstile_token: 'turnstile-proof'
+      turnstile_token: 'turnstile-proof',
+      tencent_captcha_ticket: 'tencent-ticket',
+      tencent_captcha_randstr: 'randstr'
     })
 
     clearPendingRegistrationCaptchaProof()

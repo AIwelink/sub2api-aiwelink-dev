@@ -204,7 +204,7 @@ describe('useAuthStore', () => {
       expect(localStorage.getItem('auth_token')).toBeNull()
     })
 
-    it('恢复 refresh token 和过期时间', () => {
+    it('恢复访问令牌时不会从 localStorage 读取旧 refresh token', () => {
       const futureTs = String(Date.now() + 3600_000)
       localStorage.setItem('auth_token', 'saved-token')
       localStorage.setItem('auth_user', JSON.stringify(fakeUser))
@@ -366,25 +366,6 @@ describe('useAuthStore', () => {
       expect(result).toEqual(updatedUser)
       expect(store.user).toEqual(updatedUser)
       expect(JSON.parse(localStorage.getItem('auth_user')!)).toEqual(updatedUser)
-    })
-
-    it('does not clear a newer session when refresh reports a changed session', async () => {
-      mockLogin.mockResolvedValue(fakeAuthResponse)
-      const store = useAuthStore()
-      await store.login({ email: 'test@example.com', password: '123456' })
-      mockGetCurrentUser.mockRejectedValue({
-        status: 401,
-        code: 'TOKEN_REFRESH_SESSION_CHANGED',
-      })
-
-      await expect(store.refreshUser()).rejects.toMatchObject({
-        status: 401,
-        code: 'TOKEN_REFRESH_SESSION_CHANGED',
-      })
-
-      expect(store.token).toBe('test-token-123')
-      expect(store.user).toEqual(fakeUser)
-      expect(localStorage.getItem('auth_token')).toBe('test-token-123')
     })
 
     it('未认证时抛出错误', async () => {

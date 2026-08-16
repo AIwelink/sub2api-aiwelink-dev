@@ -2,7 +2,7 @@
   <aside
     class="sidebar"
     :class="[
-      sidebarCollapsed ? 'w-16' : 'w-56',
+      sidebarCollapsed ? 'w-[72px]' : 'w-64',
       { '-translate-x-full lg:translate-x-0': !mobileOpen }
     ]"
   >
@@ -11,7 +11,7 @@
       <!-- Custom Logo or Default Logo -->
       <router-link
         :to="homePath"
-        class="sidebar-logo flex h-7 w-7 items-center justify-center overflow-hidden transition-opacity hover:opacity-75"
+        class="sidebar-logo flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl shadow-glow transition-opacity hover:opacity-80"
         @click="handleMenuItemClick(homePath)"
       >
         <img v-if="settingsLoaded" :src="siteLogo || '/logo.svg'" alt="Logo" class="h-full w-full object-contain" />
@@ -19,7 +19,7 @@
       <div class="sidebar-brand" :class="{ 'sidebar-brand-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
         <router-link
           :to="homePath"
-          class="sidebar-brand-title text-base font-semibold text-theme-text transition-colors hover:text-primary-600 dark:hover:text-primary-400"
+          class="sidebar-brand-title text-lg font-bold text-gray-900 transition-colors hover:text-primary-600 dark:text-white dark:hover:text-primary-400"
           @click="handleMenuItemClick(homePath)"
         >
           {{ siteName }}
@@ -48,7 +48,7 @@
                 :title="sidebarCollapsed ? item.label : undefined"
                 @click="handleGroupClick(item)"
               >
-                <component :is="item.icon" class="h-[18px] w-[18px] flex-shrink-0" />
+                <component :is="item.icon" class="h-5 w-5 flex-shrink-0" />
                 <span
                   class="sidebar-label sidebar-label-flex"
                   :class="{ 'sidebar-label-collapsed': sidebarCollapsed }"
@@ -94,8 +94,8 @@
               "
               @click="handleMenuItemClick(item.path)"
             >
-              <span v-if="item.iconSvg" class="h-[18px] w-[18px] flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
-              <component v-else :is="item.icon" class="h-[18px] w-[18px] flex-shrink-0" />
+              <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
+              <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
               <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
             </router-link>
           </template>
@@ -119,8 +119,8 @@
             :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
             @click="handleMenuItemClick(item.path)"
           >
-            <span v-if="item.iconSvg" class="h-[18px] w-[18px] flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
-            <component v-else :is="item.icon" class="h-[18px] w-[18px] flex-shrink-0" />
+            <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
+            <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
             <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
           </router-link>
         </div>
@@ -139,8 +139,8 @@
             :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
             @click="handleMenuItemClick(item.path)"
           >
-            <span v-if="item.iconSvg" class="h-[18px] w-[18px] flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
-            <component v-else :is="item.icon" class="h-[18px] w-[18px] flex-shrink-0" />
+            <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
+            <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
             <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
           </router-link>
         </div>
@@ -148,7 +148,7 @@
     </nav>
 
     <!-- Bottom Section -->
-    <div class="mt-auto border-t border-[rgb(var(--workbench-border))] p-2">
+    <div class="mt-auto border-t border-gray-100 p-3 dark:border-dark-800">
       <!-- Theme Toggle -->
       <button
         @click="toggleTheme"
@@ -156,8 +156,8 @@
         :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
         :title="sidebarCollapsed ? (isDark ? t('nav.lightMode') : t('nav.darkMode')) : undefined"
       >
-        <SunIcon v-if="isDark" class="h-[18px] w-[18px] flex-shrink-0 text-amber-500" />
-        <MoonIcon v-else class="h-[18px] w-[18px] flex-shrink-0" />
+        <SunIcon v-if="isDark" class="h-5 w-5 flex-shrink-0 text-amber-500" />
+        <MoonIcon v-else class="h-5 w-5 flex-shrink-0" />
         <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{
           isDark ? t('nav.lightMode') : t('nav.darkMode')
         }}</span>
@@ -170,8 +170,8 @@
         :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
         :title="sidebarCollapsed ? t('nav.expand') : t('nav.collapse')"
       >
-        <ChevronDoubleLeftIcon v-if="!sidebarCollapsed" class="h-[18px] w-[18px] flex-shrink-0" />
-        <ChevronDoubleRightIcon v-else class="h-[18px] w-[18px] flex-shrink-0" />
+        <ChevronDoubleLeftIcon v-if="!sidebarCollapsed" class="h-5 w-5 flex-shrink-0" />
+        <ChevronDoubleRightIcon v-else class="h-5 w-5 flex-shrink-0" />
         <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ t('nav.collapse') }}</span>
       </button>
     </div>
@@ -776,7 +776,6 @@ const adminNavItems = computed((): NavItem[] => {
       path: '/admin/security-audit',
       label: t('nav.securityAudit'),
       icon: ShieldIcon,
-      hideInSimpleMode: true,
       expandOnly: true,
       featureFlag: flagRiskControl,
       children: [
@@ -958,8 +957,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .sidebar-logo {
-  flex: 0 0 1.75rem;
-  min-width: 1.75rem;
+  flex: 0 0 2.25rem;
+  min-width: 2.25rem;
 }
 
 .sidebar-header-collapsed {
@@ -996,8 +995,8 @@ onBeforeUnmount(() => {
 
 .sidebar-link-collapsed {
   gap: 0;
-  padding-left: 0.9375rem;
-  padding-right: 0.9375rem;
+  padding-left: 0.875rem;
+  padding-right: 0.875rem;
 }
 
 .sidebar-section-title {
@@ -1080,7 +1079,7 @@ onBeforeUnmount(() => {
 
 .sidebar-svg-icon :deep(svg) {
   display: block;
-  width: 1.125rem;
-  height: 1.125rem;
+  width: 1.25rem;
+  height: 1.25rem;
 }
 </style>
