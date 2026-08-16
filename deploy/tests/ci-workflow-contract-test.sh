@@ -6,6 +6,10 @@ CI="$ROOT_DIR/.github/workflows/backend-ci.yml"
 SECURITY="$ROOT_DIR/.github/workflows/security-scan.yml"
 TRIVY_IGNORE="$ROOT_DIR/.trivyignore.yaml"
 BACKEND_DOCKERFILE="$ROOT_DIR/backend/Dockerfile"
+DEPLOY_DOCKERFILE="$ROOT_DIR/deploy/Dockerfile"
+BACKEND_GO_MOD="$ROOT_DIR/backend/go.mod"
+FRONTEND_PACKAGE="$ROOT_DIR/frontend/package.json"
+FRONTEND_LOCK="$ROOT_DIR/frontend/pnpm-lock.yaml"
 RELEASE="$ROOT_DIR/.github/workflows/release.yml"
 VERSION_VALIDATOR="$ROOT_DIR/backend/scripts/validate-version.sh"
 VERSION_RESOLVER="$ROOT_DIR/backend/scripts/resolve-version.sh"
@@ -103,6 +107,10 @@ assert_count "$TRIVY_IGNORE" 'expired_at: 2026-10-06' 2
 assert_count "$TRIVY_IGNORE" 'expired_at: 2026-11-11' 1
 assert_not_contains "$TRIVY_IGNORE" 'backend/Dockerfile'
 assert_contains "$BACKEND_DOCKERFILE" 'USER sub2api'
+assert_contains "$BACKEND_GO_MOD" 'go 1.26.6'
+assert_contains "$ROOT_DIR/Dockerfile" 'ARG GOLANG_IMAGE=golang:1.26.6-alpine'
+assert_contains "$BACKEND_DOCKERFILE" 'FROM golang:1.26.6-alpine'
+assert_contains "$DEPLOY_DOCKERFILE" 'ARG GOLANG_IMAGE=golang:1.26.6-alpine'
 assert_contains "$RELEASE" 'Verify release commit belongs to main'
 assert_contains "$RELEASE" 'Verify successful ci-gate for release commit'
 assert_contains "$RELEASE" 'Scan AIWeLink release image'
@@ -117,8 +125,12 @@ assert_not_contains "$RELEASE" "      - 'v*'"
 assert_not_contains "$RELEASE" 'docker.aiwelink.cc/sub2api-aiwelink-dev:latest'
 assert_not_contains "$RELEASE" "node-version: '20'"
 assert_contains "$RELEASE" "node-version: '24'"
+assert_contains "$RELEASE" "go version | grep -q 'go1.26.6'"
 assert_not_contains "$GORELEASER_SIMPLE" 'ghcr.io/{{ .Env.GITHUB_REPO_OWNER_LOWER }}/sub2api:latest'
 assert_not_contains "$GORELEASER" 'ghcr.io/{{ .Env.GITHUB_REPO_OWNER_LOWER }}/sub2api:latest'
+assert_contains "$FRONTEND_PACKAGE" '"nanoid@<3.3.18": "3.3.18"'
+assert_contains "$FRONTEND_LOCK" 'nanoid@<3.3.18: 3.3.18'
+assert_not_contains "$FRONTEND_LOCK" 'nanoid@3.3.17'
 assert_contains "$GROWTH_CANARY" "cron: '*/30 * * * *'"
 assert_contains "$GROWTH_CANARY" 'workflow_dispatch:'
 assert_contains "$GROWTH_CANARY" 'contents: read'
