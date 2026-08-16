@@ -10,6 +10,7 @@ RELEASE="$ROOT_DIR/.github/workflows/release.yml"
 VERSION_VALIDATOR="$ROOT_DIR/backend/scripts/validate-version.sh"
 VERSION_RESOLVER="$ROOT_DIR/backend/scripts/resolve-version.sh"
 GORELEASER_SIMPLE="$ROOT_DIR/.goreleaser.simple.yaml"
+GORELEASER="$ROOT_DIR/.goreleaser.yaml"
 GROWTH_CANARY="$ROOT_DIR/.github/workflows/growth-public-canary.yml"
 GROWTH_CANARY_SCRIPT="$ROOT_DIR/deploy/tests/growth-public-canary.sh"
 MAKEFILE="$ROOT_DIR/Makefile"
@@ -36,6 +37,16 @@ assert_count() {
   actual=$(grep -Fc -- "$text" "$file" || true)
   [ "$actual" -eq "$expected" ] || {
     printf 'expected %s occurrences of %s in %s, found %s\n' "$expected" "$text" "$file" "$actual" >&2
+    exit 1
+  }
+}
+
+assert_before() {
+  local file=$1 first=$2 second=$3 first_line second_line
+  first_line=$(grep -Fn -- "$first" "$file" | head -n 1 | cut -d: -f1)
+  second_line=$(grep -Fn -- "$second" "$file" | head -n 1 | cut -d: -f1)
+  [ -n "$first_line" ] && [ -n "$second_line" ] && [ "$first_line" -lt "$second_line" ] || {
+    printf 'expected %s before %s in %s\n' "$first" "$second" "$file" >&2
     exit 1
   }
 }
@@ -97,6 +108,9 @@ assert_contains "$RELEASE" 'Verify successful ci-gate for release commit'
 assert_contains "$RELEASE" 'Scan AIWeLink release image'
 assert_count "$RELEASE" 'ref: ${{ needs.validate-version.outputs.release_sha }}' 2
 assert_contains "$RELEASE" 'git rev-parse "refs/tags/$RELEASE_TAG^{}"'
+assert_contains "$RELEASE" 'Verify fetched release tag still targets release commit'
+assert_before "$RELEASE" 'name: Fetch tags with annotations' 'name: Verify fetched release tag still targets release commit'
+assert_before "$RELEASE" 'name: Verify fetched release tag still targets release commit' 'name: Get tag message'
 assert_not_contains "$RELEASE" 'ref: ${{ github.event.inputs.tag || github.ref }}'
 assert_contains "$RELEASE" "      - 'v*.*.*-*'"
 assert_not_contains "$RELEASE" "      - 'v*'"
@@ -104,6 +118,7 @@ assert_not_contains "$RELEASE" 'docker.aiwelink.cc/sub2api-aiwelink-dev:latest'
 assert_not_contains "$RELEASE" "node-version: '20'"
 assert_contains "$RELEASE" "node-version: '24'"
 assert_not_contains "$GORELEASER_SIMPLE" 'ghcr.io/{{ .Env.GITHUB_REPO_OWNER_LOWER }}/sub2api:latest'
+assert_not_contains "$GORELEASER" 'ghcr.io/{{ .Env.GITHUB_REPO_OWNER_LOWER }}/sub2api:latest'
 assert_contains "$GROWTH_CANARY" "cron: '*/30 * * * *'"
 assert_contains "$GROWTH_CANARY" 'workflow_dispatch:'
 assert_contains "$GROWTH_CANARY" 'contents: read'
