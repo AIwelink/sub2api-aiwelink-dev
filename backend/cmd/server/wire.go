@@ -67,9 +67,8 @@ func providePrivacyClientFactory() service.PrivacyClientFactory {
 
 func provideServiceBuildInfo(buildInfo handler.BuildInfo) service.BuildInfo {
 	return service.BuildInfo{
-		Version:         buildInfo.Version,
-		UpstreamVersion: buildInfo.UpstreamVersion,
-		BuildType:       buildInfo.BuildType,
+		Version:   buildInfo.Version,
+		BuildType: buildInfo.BuildType,
 	}
 }
 
@@ -89,13 +88,13 @@ func provideCleanup(
 	schedulerSnapshot *service.SchedulerSnapshotService,
 	tokenRefresh *service.TokenRefreshService,
 	accountExpiry *service.AccountExpiryService,
+	codexVersionSync *service.OpenAICodexVersionSyncService,
 	proxyExpiry *service.ProxyExpiryService,
 	subscriptionExpiry *service.SubscriptionExpiryService,
 	usageCleanup *service.UsageCleanupService,
 	idempotencyCleanup *service.IdempotencyCleanupService,
 	batchImageCleanup *service.BatchImageCleanupService,
 	batchImageWorker *service.BatchImageWorkerRuntime,
-	growthRegistrationRuntime *service.GrowthRegistrationRuntime,
 	pricing *service.PricingService,
 	emailQueue *service.EmailQueueService,
 	billingCache *service.BillingCacheService,
@@ -111,6 +110,7 @@ func provideCleanup(
 	backupSvc *service.BackupService,
 	paymentOrderExpiry *service.PaymentOrderExpiryService,
 	channelMonitorRunner *service.ChannelMonitorRunner,
+	channelMonitorV2Aggregator *service.ChannelMonitorV2Aggregator,
 	quotaFlusher *service.UserPlatformQuotaUsageFlusher,
 	upstreamBillingProbe *service.UpstreamBillingProbeService,
 	ollamaCloudUsage *service.OllamaCloudUsageService,
@@ -230,18 +230,16 @@ func provideCleanup(
 				}
 				return nil
 			}},
-			{"GrowthRegistrationRuntime", func() error {
-				if growthRegistrationRuntime != nil {
-					growthRegistrationRuntime.Stop()
-				}
-				return nil
-			}},
 			{"TokenRefreshService", func() error {
 				tokenRefresh.Stop()
 				return nil
 			}},
 			{"AccountExpiryService", func() error {
 				accountExpiry.Stop()
+				return nil
+			}},
+			{"OpenAICodexVersionSyncService", func() error {
+				codexVersionSync.Stop()
 				return nil
 			}},
 			{"ProxyExpiryService", func() error {
@@ -322,7 +320,13 @@ func provideCleanup(
 				}
 				return nil
 			}},
-			{"ChannelMonitorRunner", func() error {
+			{"ChannelMonitorV2Aggregator", func() error {
+			if channelMonitorV2Aggregator != nil {
+				channelMonitorV2Aggregator.Stop()
+			}
+			return nil
+		}},
+		{"ChannelMonitorRunner", func() error {
 				if channelMonitorRunner != nil {
 					channelMonitorRunner.Stop()
 				}

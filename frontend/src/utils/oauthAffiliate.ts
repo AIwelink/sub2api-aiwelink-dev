@@ -1,3 +1,4 @@
+const OAUTH_AFFILIATE_CODE_KEY = 'oauth_aff_code'
 const AFFILIATE_REFERRAL_CODE_KEY = 'affiliate_referral_code'
 const AFFILIATE_REFERRAL_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
@@ -83,7 +84,46 @@ export function resolveAffiliateReferralCode(...values: unknown[]): string {
   return loadAffiliateReferralCode()
 }
 
+export function storeOAuthAffiliateCode(value?: unknown): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+  const code = normalizeOAuthAffiliateCode(value)
+  try {
+    if (code) {
+      window.sessionStorage.setItem(OAUTH_AFFILIATE_CODE_KEY, code)
+    } else {
+      window.sessionStorage.removeItem(OAUTH_AFFILIATE_CODE_KEY)
+    }
+  } catch {
+    // 忽略浏览器存储异常。
+  }
+}
+
+export function loadOAuthAffiliateCode(): string {
+  if (typeof window === 'undefined') {
+    return ''
+  }
+  try {
+    return normalizeOAuthAffiliateCode(window.sessionStorage.getItem(OAUTH_AFFILIATE_CODE_KEY))
+  } catch {
+    return ''
+  }
+}
+
+export function clearOAuthAffiliateCode(): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+  try {
+    window.sessionStorage.removeItem(OAUTH_AFFILIATE_CODE_KEY)
+  } catch {
+    // 忽略浏览器存储异常。
+  }
+}
+
 export function clearAllAffiliateReferralCodes(): void {
+  clearOAuthAffiliateCode()
   clearAffiliateReferralCode()
 }
 

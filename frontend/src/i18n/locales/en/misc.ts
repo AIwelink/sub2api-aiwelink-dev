@@ -20,7 +20,6 @@ export default {
   // Version Badge
   version: {
     currentVersion: 'Current Version',
-    basedOnSub2API: 'Based on Sub2API v{version}',
     latestVersion: 'Latest Version',
     upToDate: "You're running the latest version.",
     updateAvailable: 'A new version is available!',

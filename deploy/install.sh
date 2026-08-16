@@ -2,7 +2,7 @@
 #
 # Sub2API Installation Script
 # Sub2API 安装脚本
-# Usage: curl -sSL https://raw.githubusercontent.com/AIwelink/sub2api-aiwelink-dev/main/deploy/install.sh | bash
+# Usage: curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | bash
 #
 
 set -e
@@ -31,8 +31,7 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Configuration
-GITHUB_REPO="AIwelink/sub2api-aiwelink-dev"
-AIWELINK_VERSION_PATTERN='^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-[1-9][0-9]*(\.[1-9][0-9]*)*$'
+GITHUB_REPO="Wei-Shaw/sub2api"
 INSTALL_DIR="/opt/sub2api"
 SERVICE_NAME="sub2api"
 SERVICE_USER="sub2api"
@@ -529,50 +528,14 @@ github_api_curl() {
     fi
 }
 
-normalize_aiwelink_version() {
-    local version="$1"
-    if [[ ! "$version" =~ $AIWELINK_VERSION_PATTERN ]]; then
-        return 1
-    fi
-    echo "v${version#v}"
-}
-
-stable_release_version_from_json() {
-    local release_json="$1"
-    local release_tag
-
-    if ! grep -Eq '^[[:space:]]*"draft"[[:space:]]*:[[:space:]]*false,?[[:space:]]*$' <<<"$release_json" ||
-        ! grep -Eq '^[[:space:]]*"prerelease"[[:space:]]*:[[:space:]]*false,?[[:space:]]*$' <<<"$release_json"; then
-        return 1
-    fi
-
-    release_tag=$(sed -nE 's/^[[:space:]]*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)",?[[:space:]]*$/\1/p' <<<"$release_json" | head -1)
-    normalize_aiwelink_version "$release_tag"
-}
-
-fetch_stable_release_version() {
-    local version="$1"
-    local release_json
-    local stable_version
-
-    release_json=$(github_api_curl -s --connect-timeout 10 --max-time 30 "https://api.github.com/repos/${GITHUB_REPO}/releases/tags/${version}" 2>/dev/null) || return 1
-    stable_version=$(stable_release_version_from_json "$release_json") || return 1
-    if [ "$stable_version" != "$version" ]; then
-        return 1
-    fi
-
-    echo "$stable_version"
-}
-
 # Get latest release version
 get_latest_version() {
     print_info "$(msg 'fetching_version')"
-    local release_json
-    release_json=$(github_api_curl -s --connect-timeout 10 --max-time 30 "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null) || true
+    LATEST_VERSION=$(github_api_curl -s --connect-timeout 10 --max-time 30 "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
 
-    if ! LATEST_VERSION=$(stable_release_version_from_json "$release_json"); then
+    if [ -z "$LATEST_VERSION" ]; then
         print_error "$(msg 'failed_get_version')"
-        print_info "The latest release is not a stable AIWeLink release."
+        print_info "Please check your network connection or try again later."
         exit 1
     fi
 
@@ -583,16 +546,8 @@ get_latest_version() {
 list_versions() {
     print_info "$(msg 'fetching_versions')"
 
-    local release_tags
     local versions
-    release_tags=$(github_api_curl -s --connect-timeout 10 --max-time 30 "https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=20" 2>/dev/null |
-        sed -nE 's/^[[:space:]]*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)",?[[:space:]]*$/\1/p') || true
-    versions=$(printf '%s\n' "$release_tags" |
-        while read -r release_tag; do
-            local_version=$(normalize_aiwelink_version "$release_tag") || continue
-            fetch_stable_release_version "$local_version" || true
-        done |
-        head -20)
+    versions=$(github_api_curl -s --connect-timeout 10 --max-time 30 "https://api.github.com/repos/${GITHUB_REPO}/releases" 2>/dev/null | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/' | head -20)
 
     if [ -z "$versions" ]; then
         print_error "$(msg 'failed_get_version')"
@@ -620,16 +575,24 @@ validate_version() {
         exit 1
     fi
 
-    if ! version=$(normalize_aiwelink_version "$version"); then
-        print_error "Invalid AIWeLink version: $1" >&2
-        echo "Expected a version such as v0.1.170-1 or v0.1.170-2.4." >&2
-        exit 1
+    # Ensure version starts with 'v'
+    if [[ ! "$version" =~ ^v ]]; then
+        version="v$version"
     fi
 
     print_info "$(msg 'validating_version') $version" >&2
 
-    local stable_version
-    if ! stable_version=$(fetch_stable_release_version "$version"); then
+    # Check if the release exists
+    local http_code
+    http_code=$(github_api_curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 30 "https://api.github.com/repos/${GITHUB_REPO}/releases/tags/${version}" 2>/dev/null)
+
+    # Check for network errors (empty or non-numeric response)
+    if [ -z "$http_code" ] || ! [[ "$http_code" =~ ^[0-9]+$ ]]; then
+        print_error "Network error: Failed to connect to GitHub API" >&2
+        exit 1
+    fi
+
+    if [ "$http_code" != "200" ]; then
         print_error "$(msg 'version_not_found'): $version" >&2
         echo "" >&2
         list_versions >&2
@@ -637,15 +600,14 @@ validate_version() {
     fi
 
     # Return the normalized version (to stdout)
-    echo "$stable_version"
+    echo "$version"
 }
 
 # Get current installed version
 get_current_version() {
     if [ -f "$INSTALL_DIR/sub2api" ]; then
-        "$INSTALL_DIR/sub2api" --version 2>/dev/null |
-            grep -oE 'v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-[1-9][0-9]*(\.[1-9][0-9]*)*' |
-            head -1 || echo "unknown"
+        # Use grep -E for better compatibility (works on macOS and Linux)
+        "$INSTALL_DIR/sub2api" --version 2>/dev/null | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo "unknown"
     else
         echo "not_installed"
     fi
@@ -756,7 +718,7 @@ install_service() {
     cat > /etc/systemd/system/sub2api.service << EOF
 [Unit]
 Description=Sub2API - AI API Gateway Platform
-Documentation=https://github.com/AIwelink/sub2api-aiwelink-dev
+Documentation=https://github.com/Wei-Shaw/sub2api
 After=network.target postgresql.service redis.service
 Wants=postgresql.service redis.service
 
@@ -901,7 +863,7 @@ upgrade() {
     print_info "$(msg 'upgrading')"
 
     # Get current version
-    CURRENT_VERSION=$(get_current_version)
+    CURRENT_VERSION=$("$INSTALL_DIR/sub2api" --version 2>/dev/null | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")
     print_info "$(msg 'current_version'): $CURRENT_VERSION"
 
     # Stop service

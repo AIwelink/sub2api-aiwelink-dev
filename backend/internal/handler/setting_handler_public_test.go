@@ -61,7 +61,7 @@ func TestSettingHandler_GetPublicSettings_ExposesForceEmailOnThirdPartySignup(t 
 			service.SettingKeyForceEmailOnThirdPartySignup: "true",
 		},
 	}
-	h := NewSettingHandler(service.NewSettingService(repo, &config.Config{}), "0.1.170-1", "0.1.170")
+	h := NewSettingHandler(service.NewSettingService(repo, &config.Config{}), "test-version")
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -82,13 +82,17 @@ func TestSettingHandler_GetPublicSettings_ExposesForceEmailOnThirdPartySignup(t 
 	require.True(t, resp.Data.ForceEmailOnThirdPartySignup)
 }
 
-func TestSettingHandler_GetPublicSettings_ExposesVersionMetadata(t *testing.T) {
+func TestSettingHandler_GetPublicSettings_ExposesTencentCaptchaConfiguration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	h := NewSettingHandler(
-		service.NewSettingService(&settingHandlerPublicRepoStub{}, &config.Config{}),
-		"0.1.170-1",
-		"0.1.170",
-	)
+
+	repo := &settingHandlerPublicRepoStub{
+		values: map[string]string{
+			service.SettingKeyTencentCaptchaEnabled: "true",
+			service.SettingKeyTencentCaptchaAppID:   "123456789",
+			service.SettingKeyTencentCaptchaRegion:  service.TencentCaptchaRegionINTL,
+		},
+	}
+	h := NewSettingHandler(service.NewSettingService(repo, &config.Config{}), "test-version")
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -96,15 +100,21 @@ func TestSettingHandler_GetPublicSettings_ExposesVersionMetadata(t *testing.T) {
 
 	h.GetPublicSettings(c)
 
+	require.Equal(t, http.StatusOK, recorder.Code)
+
 	var resp struct {
+		Code int `json:"code"`
 		Data struct {
-			Version         string `json:"version"`
-			UpstreamVersion string `json:"upstream_version"`
+			TencentCaptchaEnabled bool   `json:"tencent_captcha_enabled"`
+			TencentCaptchaAppID   string `json:"tencent_captcha_app_id"`
+			TencentCaptchaRegion  string `json:"tencent_captcha_region"`
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
-	require.Equal(t, "0.1.170-1", resp.Data.Version)
-	require.Equal(t, "0.1.170", resp.Data.UpstreamVersion)
+	require.Equal(t, 0, resp.Code)
+	require.True(t, resp.Data.TencentCaptchaEnabled)
+	require.Equal(t, "123456789", resp.Data.TencentCaptchaAppID)
+	require.Equal(t, service.TencentCaptchaRegionINTL, resp.Data.TencentCaptchaRegion)
 }
 
 func TestSettingHandler_GetPublicSettings_ExposesWeChatOAuthModeCapabilities(t *testing.T) {
@@ -121,7 +131,7 @@ func TestSettingHandler_GetPublicSettings_ExposesWeChatOAuthModeCapabilities(t *
 			service.SettingKeyWeChatConnectRedirectURL:         "https://api.example.com/api/v1/auth/oauth/wechat/callback",
 			service.SettingKeyWeChatConnectFrontendRedirectURL: "/auth/wechat/callback",
 		},
-	}, &config.Config{}), "0.1.170-1", "0.1.170")
+	}, &config.Config{}), "test-version")
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)

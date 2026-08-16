@@ -113,6 +113,9 @@ func clearDingTalkCookie(c *gin.Context, name string, secure bool) {
 // DingTalkOAuthStart 启动 DingTalk Connect OAuth 登录流程。
 // GET /api/v1/auth/oauth/dingtalk/start?redirect=/dashboard&intent=login
 func (h *AuthHandler) DingTalkOAuthStart(c *gin.Context) {
+	if !h.requireActionCaptchaForOAuthLoginStart(c) {
+		return
+	}
 	cfg, err := h.getDingTalkOAuthConfig(c.Request.Context())
 	if err != nil {
 		frontendCB := dingTalkOAuthDefaultFrontendCB
@@ -144,7 +147,6 @@ func (h *AuthHandler) DingTalkOAuthStart(c *gin.Context) {
 	intent := normalizeOAuthIntent(c.Query("intent"))
 	setDingTalkCookie(c, dingTalkOAuthIntentCookieName, encodeCookieValue(intent), dingTalkOAuthCookieMaxAgeSec, secureCookie)
 	captureOAuthPromoCode(c, secureCookie)
-	captureOAuthAffiliateCode(c, secureCookie)
 
 	setOAuthPendingBrowserCookie(c, browserSessionKey, secureCookie)
 	clearOAuthPendingSessionCookie(c, secureCookie)
@@ -166,7 +168,7 @@ func (h *AuthHandler) DingTalkOAuthStart(c *gin.Context) {
 		return
 	}
 
-	c.Redirect(http.StatusFound, authURL)
+	respondOAuthStart(c, authURL)
 }
 
 // ─── buildDingTalkAuthorizeURL ─────────────────────────────────────────────
@@ -320,7 +322,6 @@ func (h *AuthHandler) DingTalkOAuthCallback(c *gin.Context) {
 		clearDingTalkCookie(c, dingTalkOAuthRedirectCookie, secureCookie)
 		clearDingTalkCookie(c, dingTalkOAuthIntentCookieName, secureCookie)
 		clearOAuthPromoCodeCookie(c, secureCookie)
-		clearOAuthAffiliateCodeCookie(c, secureCookie)
 	}()
 
 	expectedState, err := readCookieDecoded(c, dingTalkOAuthStateCookieName)
@@ -788,7 +789,7 @@ func (h *AuthHandler) CompleteDingTalkOAuthRegistration(c *gin.Context) {
 		email,
 		username,
 		req.InvitationCode,
-		firstNonEmpty(req.AffCode, pendingOAuthAffiliateCode(session)),
+		req.AffCode,
 		pendingOAuthPromoCode(session),
 		"dingtalk",
 	)

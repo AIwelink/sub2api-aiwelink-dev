@@ -1,21 +1,22 @@
 <template>
-  <div class="workbench-shell min-h-screen text-theme-text">
+  <div class="min-h-screen bg-gray-50 dark:bg-dark-950">
+    <!-- Background Decoration -->
+    <div class="pointer-events-none fixed inset-0 bg-mesh-gradient"></div>
+
     <!-- Sidebar -->
     <AppSidebar />
 
     <!-- Main Content Area -->
     <div
-      class="workbench-main relative min-h-screen transition-all duration-200"
-      :class="[sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-56']"
+      class="relative min-h-screen transition-all duration-300"
+      :class="[sidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-64']"
     >
       <!-- Header -->
       <AppHeader />
 
       <!-- Main Content -->
-      <main class="workbench-content">
-        <div class="mx-auto w-full max-w-[1440px]">
-          <slot />
-        </div>
+      <main class="p-4 md:p-6 lg:p-8">
+        <slot />
       </main>
     </div>
   </div>

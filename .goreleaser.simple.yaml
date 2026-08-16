@@ -22,8 +22,6 @@ builds:
       - amd64
     ldflags:
       - -s -w
-      - -X main.Version={{.Version}}
-      - -X main.UpstreamVersion={{.Env.UPSTREAM_VERSION}}
       - -X main.Commit={{.Commit}}
       - -X main.Date={{.Date}}
       - -X main.BuildType=release
@@ -66,8 +64,8 @@ release:
     owner: "{{ .Env.GITHUB_REPO_OWNER }}"
     name: "{{ .Env.GITHUB_REPO_NAME }}"
   draft: false
-  prerelease: true
-  name_template: "AIWeLink {{.Version}} (Simple)"
+  prerelease: auto
+  name_template: "Sub2API {{.Version}} (Simple)"
   # 跳过上传二进制包
   skip_upload: true
   header: |

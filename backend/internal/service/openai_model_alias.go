@@ -153,7 +153,7 @@ func appendUsageBillingModelCandidate(candidates []string, seen map[string]struc
 }
 
 func usageBillingModelCandidates(primary string, alternates ...string) []string {
-	seen := make(map[string]struct{})
+	seen := make(map[string]struct{}, 1+len(alternates))
 	candidates := appendUsageBillingModelCandidate(nil, seen, primary)
 	for _, alternate := range alternates {
 		candidates = appendUsageBillingModelCandidate(candidates, seen, alternate)

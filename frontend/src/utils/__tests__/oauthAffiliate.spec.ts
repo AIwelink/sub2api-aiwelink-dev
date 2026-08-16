@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   clearAffiliateReferralCode,
+  clearOAuthAffiliateCode,
   loadAffiliateReferralCode,
+  loadOAuthAffiliateCode,
   resolveAffiliateReferralCode,
-  storeAffiliateReferralCode
+  storeAffiliateReferralCode,
+  storeOAuthAffiliateCode
 } from '@/utils/oauthAffiliate'
 
 describe('oauthAffiliate', () => {
@@ -17,7 +20,6 @@ describe('oauthAffiliate', () => {
     expect(resolveAffiliateReferralCode(' 5579J7CFG9PF ')).toBe('5579J7CFG9PF')
     expect(loadAffiliateReferralCode()).toBe('5579J7CFG9PF')
     expect(resolveAffiliateReferralCode()).toBe('5579J7CFG9PF')
-    expect(sessionStorage.length).toBe(0)
   })
 
   it('expires stale affiliate referral code', () => {
@@ -29,8 +31,17 @@ describe('oauthAffiliate', () => {
     expect(localStorage.getItem('affiliate_referral_code')).toBeNull()
   })
 
-  it('clears the persisted referral code', () => {
-    storeAffiliateReferralCode('AFF123')
+  it('keeps oauth transient code separate from persistent referral code', () => {
+    storeAffiliateReferralCode('PERSISTED')
+    storeOAuthAffiliateCode('OAUTH')
+
+    expect(loadAffiliateReferralCode()).toBe('PERSISTED')
+    expect(loadOAuthAffiliateCode()).toBe('OAUTH')
+
+    clearOAuthAffiliateCode()
+    expect(loadOAuthAffiliateCode()).toBe('')
+    expect(loadAffiliateReferralCode()).toBe('PERSISTED')
+
     clearAffiliateReferralCode()
     expect(loadAffiliateReferralCode()).toBe('')
   })

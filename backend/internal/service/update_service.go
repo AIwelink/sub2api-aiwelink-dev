@@ -15,11 +15,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
-	"github.com/Wei-Shaw/sub2api/internal/versioninfo"
 )
 
 var (
@@ -28,8 +28,9 @@ var (
 )
 
 const (
+	updateCacheKey = "update_check_cache"
 	updateCacheTTL = 1200 // 20 minutes
-	githubRepo     = "AIwelink/sub2api-aiwelink-dev"
+	githubRepo     = "Wei-Shaw/sub2api"
 
 	// Security: allowed download domains for updates
 	allowedDownloadHost = "github.com"
@@ -42,7 +43,6 @@ const (
 	maxRollbackVersions = 3
 	// Fetch a few extra releases so filtering (current/newer/prerelease) still leaves enough candidates
 	rollbackFetchPageSize = 15
-	latestFetchPageSize   = 30
 )
 
 // UpdateCache defines cache operations for update service
@@ -61,34 +61,31 @@ type GitHubReleaseClient interface {
 
 // UpdateService handles software updates
 type UpdateService struct {
-	cache           UpdateCache
-	githubClient    GitHubReleaseClient
-	currentVersion  string
-	upstreamVersion string
-	buildType       string // "source" for manual builds, "release" for CI builds
+	cache          UpdateCache
+	githubClient   GitHubReleaseClient
+	currentVersion string
+	buildType      string // "source" for manual builds, "release" for CI builds
 }
 
 // NewUpdateService creates a new UpdateService
-func NewUpdateService(cache UpdateCache, githubClient GitHubReleaseClient, version, upstreamVersion, buildType string) *UpdateService {
+func NewUpdateService(cache UpdateCache, githubClient GitHubReleaseClient, version, buildType string) *UpdateService {
 	return &UpdateService{
-		cache:           cache,
-		githubClient:    githubClient,
-		currentVersion:  version,
-		upstreamVersion: upstreamVersion,
-		buildType:       buildType,
+		cache:          cache,
+		githubClient:   githubClient,
+		currentVersion: version,
+		buildType:      buildType,
 	}
 }
 
 // UpdateInfo contains update information
 type UpdateInfo struct {
-	CurrentVersion  string       `json:"current_version"`
-	UpstreamVersion string       `json:"upstream_version"`
-	LatestVersion   string       `json:"latest_version"`
-	HasUpdate       bool         `json:"has_update"`
-	ReleaseInfo     *ReleaseInfo `json:"release_info,omitempty"`
-	Cached          bool         `json:"cached"`
-	Warning         string       `json:"warning,omitempty"`
-	BuildType       string       `json:"build_type"` // "source" or "release"
+	CurrentVersion string       `json:"current_version"`
+	LatestVersion  string       `json:"latest_version"`
+	HasUpdate      bool         `json:"has_update"`
+	ReleaseInfo    *ReleaseInfo `json:"release_info,omitempty"`
+	Cached         bool         `json:"cached"`
+	Warning        string       `json:"warning,omitempty"`
+	BuildType      string       `json:"build_type"` // "source" or "release"
 }
 
 // ReleaseInfo contains GitHub release details
@@ -150,12 +147,11 @@ func (s *UpdateService) CheckUpdate(ctx context.Context, force bool) (*UpdateInf
 			return cached, nil
 		}
 		return &UpdateInfo{
-			CurrentVersion:  s.currentVersion,
-			UpstreamVersion: s.upstreamVersion,
-			LatestVersion:   s.currentVersion,
-			HasUpdate:       false,
-			Warning:         err.Error(),
-			BuildType:       s.buildType,
+			CurrentVersion: s.currentVersion,
+			LatestVersion:  s.currentVersion,
+			HasUpdate:      false,
+			Warning:        err.Error(),
+			BuildType:      s.buildType,
 		}, nil
 	}
 
@@ -375,8 +371,11 @@ func (s *UpdateService) fetchRollbackCandidates(ctx context.Context) ([]*GitHubR
 	seen := make(map[string]bool, len(releases))
 	candidates := make([]*GitHubRelease, 0, maxRollbackVersions)
 	for _, r := range releases {
-		v, ok := validReleaseVersion(r)
-		if !ok || seen[v] {
+		if r == nil || r.Draft || r.Prerelease {
+			continue
+		}
+		v := strings.TrimPrefix(r.TagName, "v")
+		if v == "" || seen[v] {
 			continue
 		}
 		// Only versions strictly older than current (also excludes current itself)
@@ -401,26 +400,10 @@ func (s *UpdateService) fetchRollbackCandidates(ctx context.Context) ([]*GitHubR
 }
 
 func (s *UpdateService) fetchLatestRelease(ctx context.Context) (*UpdateInfo, error) {
-	releases, err := s.githubClient.FetchRecentReleases(ctx, githubRepo, latestFetchPageSize)
+	release, err := s.githubClient.FetchLatestRelease(ctx, githubRepo)
 	if err != nil {
 		return nil, err
 	}
-
-	candidates := make([]*GitHubRelease, 0, len(releases))
-	for _, release := range releases {
-		if _, ok := validReleaseVersion(release); ok {
-			candidates = append(candidates, release)
-		}
-	}
-	if len(candidates) == 0 {
-		return nil, fmt.Errorf("no valid AIWeLink releases found")
-	}
-	sort.SliceStable(candidates, func(i, j int) bool {
-		left, _ := validReleaseVersion(candidates[i])
-		right, _ := validReleaseVersion(candidates[j])
-		return compareVersions(left, right) > 0
-	})
-	release := candidates[0]
 
 	latestVersion := strings.TrimPrefix(release.TagName, "v")
 
@@ -434,10 +417,9 @@ func (s *UpdateService) fetchLatestRelease(ctx context.Context) (*UpdateInfo, er
 	}
 
 	return &UpdateInfo{
-		CurrentVersion:  s.currentVersion,
-		UpstreamVersion: s.upstreamVersion,
-		LatestVersion:   latestVersion,
-		HasUpdate:       compareVersions(s.currentVersion, latestVersion) < 0,
+		CurrentVersion: s.currentVersion,
+		LatestVersion:  latestVersion,
+		HasUpdate:      compareVersions(s.currentVersion, latestVersion) < 0,
 		ReleaseInfo: &ReleaseInfo{
 			Name:        release.Name,
 			Body:        release.Body,
@@ -448,17 +430,6 @@ func (s *UpdateService) fetchLatestRelease(ctx context.Context) (*UpdateInfo, er
 		Cached:    false,
 		BuildType: s.buildType,
 	}, nil
-}
-
-func validReleaseVersion(release *GitHubRelease) (string, bool) {
-	if release == nil || release.Draft || release.Prerelease {
-		return "", false
-	}
-	value := strings.TrimPrefix(release.TagName, "v")
-	if _, err := versioninfo.Parse(value); err != nil {
-		return "", false
-	}
-	return value, true
 }
 
 func (s *UpdateService) downloadFile(ctx context.Context, downloadURL, dest string) error {
@@ -642,13 +613,12 @@ func (s *UpdateService) getFromCache(ctx context.Context) (*UpdateInfo, error) {
 	}
 
 	return &UpdateInfo{
-		CurrentVersion:  s.currentVersion,
-		UpstreamVersion: s.upstreamVersion,
-		LatestVersion:   cached.Latest,
-		HasUpdate:       compareVersions(s.currentVersion, cached.Latest) < 0,
-		ReleaseInfo:     cached.ReleaseInfo,
-		Cached:          true,
-		BuildType:       s.buildType,
+		CurrentVersion: s.currentVersion,
+		LatestVersion:  cached.Latest,
+		HasUpdate:      compareVersions(s.currentVersion, cached.Latest) < 0,
+		ReleaseInfo:    cached.ReleaseInfo,
+		Cached:         true,
+		BuildType:      s.buildType,
 	}, nil
 }
 
@@ -667,15 +637,30 @@ func (s *UpdateService) saveToCache(ctx context.Context, info *UpdateInfo) {
 	_ = s.cache.SetUpdateInfo(ctx, string(data), time.Duration(updateCacheTTL)*time.Second)
 }
 
-// compareVersions compares two validated AIWeLink versions. Invalid values are
-// equal so remote metadata cannot accidentally trigger an update.
+// compareVersions compares two semantic versions
 func compareVersions(current, latest string) int {
-	comparison, err := versioninfo.Compare(
-		strings.TrimPrefix(current, "v"),
-		strings.TrimPrefix(latest, "v"),
-	)
-	if err != nil {
-		return 0
+	currentParts := parseVersion(current)
+	latestParts := parseVersion(latest)
+
+	for i := 0; i < 3; i++ {
+		if currentParts[i] < latestParts[i] {
+			return -1
+		}
+		if currentParts[i] > latestParts[i] {
+			return 1
+		}
 	}
-	return comparison
+	return 0
+}
+
+func parseVersion(v string) [3]int {
+	v = strings.TrimPrefix(v, "v")
+	parts := strings.Split(v, ".")
+	result := [3]int{0, 0, 0}
+	for i := 0; i < len(parts) && i < 3; i++ {
+		if parsed, err := strconv.Atoi(parts[i]); err == nil {
+			result[i] = parsed
+		}
+	}
+	return result
 }

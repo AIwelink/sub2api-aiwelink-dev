@@ -53,6 +53,7 @@ type Handlers struct {
 	Subscription     *SubscriptionHandler
 	Announcement     *AnnouncementHandler
 	ChannelMonitor   *ChannelMonitorUserHandler
+	ChannelMonitorV2 *ChannelMonitorV2Handler
 	Admin            *AdminHandlers
 	Gateway          *GatewayHandler
 	OpenAIGateway    *OpenAIGatewayHandler
@@ -69,7 +70,6 @@ type Handlers struct {
 
 // BuildInfo contains build-time information
 type BuildInfo struct {
-	Version         string
-	UpstreamVersion string
-	BuildType       string // "source" for manual builds, "release" for CI builds
+	Version   string
+	BuildType string // "source" for manual builds, "release" for CI builds
 }

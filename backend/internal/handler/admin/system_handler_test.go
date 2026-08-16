@@ -101,30 +101,7 @@ func newSystemHandlerTestRouter(t *testing.T, updateSvc *systemHandlerUpdateServ
 	router.POST("/api/v1/admin/system/update", handler.PerformUpdate)
 	router.POST("/api/v1/admin/system/rollback", handler.Rollback)
 	router.GET("/api/v1/admin/system/rollback-versions", handler.GetRollbackVersions)
-	router.GET("/api/v1/admin/system/version", handler.GetVersion)
 	return router
-}
-
-func TestSystemHandlerGetVersionExposesUpstreamVersion(t *testing.T) {
-	updateSvc := &systemHandlerUpdateServiceStub{updateInfo: &service.UpdateInfo{
-		CurrentVersion:  "0.1.170-1",
-		UpstreamVersion: "0.1.170",
-	}}
-	router := newSystemHandlerTestRouter(t, updateSvc, newMemoryIdempotencyRepoStub())
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/system/version", nil)
-	router.ServeHTTP(rec, req)
-
-	var body struct {
-		Data struct {
-			Version         string `json:"version"`
-			UpstreamVersion string `json:"upstream_version"`
-		} `json:"data"`
-	}
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
-	require.Equal(t, "0.1.170-1", body.Data.Version)
-	require.Equal(t, "0.1.170", body.Data.UpstreamVersion)
 }
 
 func requireSystemLockStatus(t *testing.T, repo *memoryIdempotencyRepoStub, wantStatus string) {

@@ -29,7 +29,6 @@ export const useAppStore = defineStore('app', () => {
   const siteName = ref<string>('Sub2API')
   const siteLogo = ref<string>('')
   const siteVersion = ref<string>('')
-  const siteUpstreamVersion = ref<string>('')
   const contactInfo = ref<string>('')
   const apiBaseUrl = ref<string>('')
   const docUrl = ref<string>('')
@@ -40,7 +39,6 @@ export const useAppStore = defineStore('app', () => {
   const versionLoaded = ref<boolean>(false)
   const versionLoading = ref<boolean>(false)
   const currentVersion = ref<string>('')
-  const upstreamVersion = ref<string>('')
   const latestVersion = ref<string>('')
   const hasUpdate = ref<boolean>(false)
   const buildType = ref<string>('source')
@@ -247,7 +245,6 @@ export const useAppStore = defineStore('app', () => {
     if (versionLoaded.value && !force) {
       return {
         current_version: currentVersion.value,
-        upstream_version: upstreamVersion.value,
         latest_version: latestVersion.value,
         has_update: hasUpdate.value,
         build_type: buildType.value,
@@ -265,7 +262,6 @@ export const useAppStore = defineStore('app', () => {
     try {
       const data = await checkUpdatesAPI(force)
       currentVersion.value = data.current_version
-      upstreamVersion.value = data.upstream_version
       latestVersion.value = data.latest_version
       hasUpdate.value = data.has_update
       buildType.value = data.build_type || 'source'
@@ -301,7 +297,6 @@ export const useAppStore = defineStore('app', () => {
     siteName.value = config.site_name || 'Sub2API'
     siteLogo.value = config.site_logo || ''
     siteVersion.value = config.version || ''
-    siteUpstreamVersion.value = config.upstream_version || ''
     contactInfo.value = config.contact_info || ''
     apiBaseUrl.value = config.api_base_url || ''
     docUrl.value = config.doc_url || ''
@@ -340,6 +335,10 @@ export const useAppStore = defineStore('app', () => {
         invitation_code_enabled: false,
         turnstile_enabled: false,
         turnstile_site_key: '',
+        aliyun_captcha_enabled: false,
+        aliyun_captcha_scene_id: '',
+        aliyun_captcha_prefix: '',
+        aliyun_captcha_region: 'cn',
         site_name: siteName.value,
         site_logo: siteLogo.value,
         site_subtitle: '',
@@ -366,7 +365,6 @@ export const useAppStore = defineStore('app', () => {
         backend_mode_enabled: false,
         passkey_enabled: false,
         version: siteVersion.value,
-        upstream_version: siteUpstreamVersion.value,
         balance_low_notify_enabled: false,
         account_quota_notify_enabled: false,
         balance_low_notify_threshold: 0,
@@ -448,7 +446,6 @@ export const useAppStore = defineStore('app', () => {
     siteName,
     siteLogo,
     siteVersion,
-    siteUpstreamVersion,
     contactInfo,
     apiBaseUrl,
     docUrl,
@@ -458,7 +455,6 @@ export const useAppStore = defineStore('app', () => {
     versionLoaded,
     versionLoading,
     currentVersion,
-    upstreamVersion,
     latestVersion,
     hasUpdate,
     buildType,

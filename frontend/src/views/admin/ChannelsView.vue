@@ -713,7 +713,8 @@ const statusEditOptions = computed(() => [
 const billingModelSourceOptions = computed(() => [
   { value: 'channel_mapped', label: t('admin.channels.form.billingModelSourceChannelMapped', 'Bill by channel-mapped model') },
   { value: 'requested', label: t('admin.channels.form.billingModelSourceRequested', 'Bill by requested model') },
-  { value: 'upstream', label: t('admin.channels.form.billingModelSourceUpstream', 'Bill by final upstream model') }
+  { value: 'upstream', label: t('admin.channels.form.billingModelSourceUpstream', 'Bill by final upstream model') },
+  { value: 'response_model', label: t('admin.channels.form.billingModelSourceResponse', 'Bill by upstream response model') }
 ])
 
 // ── State ──
@@ -1637,7 +1638,6 @@ onUnmounted(() => {
 
 .channel-tab-active {
   @apply border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400;
-  box-shadow: 0 8px 18px -10px rgb(var(--color-primary-500) / 0.14);
 }
 
 .channel-tab-inactive {

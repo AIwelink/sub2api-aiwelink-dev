@@ -3,39 +3,12 @@
 package service
 
 import (
-	"math"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestBoundedExtraIntRejectsNonFiniteAndOutOfRangeValues(t *testing.T) {
-	tests := []struct {
-		name  string
-		value any
-	}{
-		{name: "positive infinity", value: math.Inf(1)},
-		{name: "negative infinity", value: math.Inf(-1)},
-		{name: "not a number", value: math.NaN()},
-		{name: "huge positive", value: math.MaxFloat64},
-		{name: "huge negative", value: -math.MaxFloat64},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, ok := boundedExtraInt(tt.value, 0, 23)
-			require.False(t, ok)
-		})
-	}
-}
-
-func TestParseBoundedExtraIntUsesFallback(t *testing.T) {
-	require.Equal(t, 0, parseBoundedExtraInt(math.Inf(1), 0, 23, 0))
-	require.Equal(t, 1, parseBoundedExtraInt(math.NaN(), 0, 6, 1))
-	require.Equal(t, 23, parseBoundedExtraInt(23.9, 0, 23, 0))
-}
 
 // ---------------------------------------------------------------------------
 // nextFixedDailyReset

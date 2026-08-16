@@ -1,10 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
-import {
-  clearInMemoryRefreshToken,
-  getInMemoryRefreshToken
-} from '@/api/authSecrets'
 
 // Mock authAPI
 const mockLogin = vi.fn()
@@ -59,7 +55,6 @@ describe('useAuthStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     localStorage.clear()
-    clearInMemoryRefreshToken()
     vi.useFakeTimers()
     vi.clearAllMocks()
   })
@@ -82,8 +77,6 @@ describe('useAuthStore', () => {
       expect(store.isAuthenticated).toBe(true)
       expect(localStorage.getItem('auth_token')).toBe('test-token-123')
       expect(localStorage.getItem('auth_user')).toBe(JSON.stringify(fakeUser))
-      expect(getInMemoryRefreshToken()).toBe('refresh-token-456')
-      expect(localStorage.getItem('refresh_token')).toBeNull()
     })
 
     it('登录失败时清除状态并抛出错误', async () => {
@@ -217,7 +210,6 @@ describe('useAuthStore', () => {
       store.checkAuth()
 
       expect(store.isAuthenticated).toBe(true)
-      expect(getInMemoryRefreshToken()).toBeNull()
     })
 
     it('恢复持久化 pending auth session', () => {
@@ -366,25 +358,6 @@ describe('useAuthStore', () => {
       expect(result).toEqual(updatedUser)
       expect(store.user).toEqual(updatedUser)
       expect(JSON.parse(localStorage.getItem('auth_user')!)).toEqual(updatedUser)
-    })
-
-    it('does not clear a newer session when refresh reports a changed session', async () => {
-      mockLogin.mockResolvedValue(fakeAuthResponse)
-      const store = useAuthStore()
-      await store.login({ email: 'test@example.com', password: '123456' })
-      mockGetCurrentUser.mockRejectedValue({
-        status: 401,
-        code: 'TOKEN_REFRESH_SESSION_CHANGED',
-      })
-
-      await expect(store.refreshUser()).rejects.toMatchObject({
-        status: 401,
-        code: 'TOKEN_REFRESH_SESSION_CHANGED',
-      })
-
-      expect(store.token).toBe('test-token-123')
-      expect(store.user).toEqual(fakeUser)
-      expect(localStorage.getItem('auth_token')).toBe('test-token-123')
     })
 
     it('未认证时抛出错误', async () => {

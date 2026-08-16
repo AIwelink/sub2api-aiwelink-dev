@@ -14,62 +14,6 @@ export default {
     login: 'Login',
     getStarted: 'Get Started',
     goToDashboard: 'Go to Dashboard',
-    redesign: {
-      intro: {
-        thinking: 'AI is thinking'
-      },
-      nav: {
-        useCases: 'Use Cases',
-        pricing: 'Pricing',
-        models: 'Models',
-        register: 'Register'
-      },
-      hero: {
-        eyebrow: 'ONE ENDPOINT · EVERY MODEL',
-        description: 'One API connects every leading model, giving developers and small teams a stable, unified, and transparent way to build.',
-        primary: 'Start Now',
-        secondary: 'Explore Use Cases'
-      },
-      useCases: {
-        index: '01 / USE CASES',
-        title: 'One consistent connection for coding, research, and agents.',
-        lead: 'Organized around real workflows so models become part of the work.',
-        coding: {
-          title: 'Coding',
-          description: 'Codex · Claude Code'
-        },
-        research: {
-          title: 'Research & Deep Learning',
-          description: 'Research, reasoning, and model experiments'
-        },
-        agent: {
-          title: 'Agent Development',
-          description: 'One model endpoint for tools and agents'
-        }
-      },
-      pricing: {
-        index: '02 / PRICING',
-        title: 'Lower cost with transparent billing.',
-        lead: 'Top up your platform balance and use model-specific multipliers.',
-        equation: '¥1 = $10',
-        equationLabel: 'CNY to platform balance',
-        multiplierLabel: 'Rates as low as',
-        multiplier: '¥0.1–0.2 / $1',
-        billingLabel: 'Model-based multipliers',
-        billingDescription: 'Final usage follows the itemized bill.'
-      },
-      models: {
-        index: '03 / MODELS',
-        title: 'Many models. One unified endpoint.',
-        lead: 'Starting with leading models and continuously expanding.'
-      },
-      cta: {
-        eyebrow: 'BUILD WITH AIwelink',
-        title: 'Connect your next build.',
-        description: 'Enter the platform, create a key, and make your first call.',
-        register: 'Start Now'
-      }
-    },
     // User-focused value proposition
     heroSubtitle: 'One Key, All AI Models',
     heroDescription: 'No need to manage multiple subscriptions. Access Claude, GPT, Gemini and more with a single API key',
