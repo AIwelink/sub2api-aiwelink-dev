@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"log/slog"
 	"net"
 	"net/http"
@@ -35,8 +36,14 @@ func TestRedactedProxyForLog(t *testing.T) {
 func TestTLSFingerprintTransportLogsDoNotIncludeProxyAddress(t *testing.T) {
 	var logs bytes.Buffer
 	originalLogger := slog.Default()
+	originalLogWriter := log.Writer()
+	originalLogFlags := log.Flags()
 	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
-	t.Cleanup(func() { slog.SetDefault(originalLogger) })
+	t.Cleanup(func() {
+		slog.SetDefault(originalLogger)
+		log.SetOutput(originalLogWriter)
+		log.SetFlags(originalLogFlags)
+	})
 
 	for _, rawProxyURL := range []string{
 		"http://alice:super-secret@proxy.example:8080",
@@ -52,9 +59,12 @@ func TestTLSFingerprintTransportLogsDoNotIncludeProxyAddress(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	require.NotContains(t, logs.String(), "proxy.example")
-	require.NotContains(t, logs.String(), "alice")
-	require.NotContains(t, logs.String(), "super-secret")
+	output := logs.String()
+	require.Contains(t, output, "msg=tls_fingerprint_transport_http_connect")
+	require.Contains(t, output, "msg=tls_fingerprint_transport_socks5")
+	require.NotContains(t, output, "proxy.example")
+	require.NotContains(t, output, "alice")
+	require.NotContains(t, output, "super-secret")
 }
 
 func TestHTTPUpstreamDoCanDisableRedirectsPerRequest(t *testing.T) {
