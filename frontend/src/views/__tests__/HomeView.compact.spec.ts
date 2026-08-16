@@ -46,6 +46,7 @@ function mountHome(settings: Record<string, unknown> = {}) {
         RouterLink: RouterLinkStub,
         LocaleSwitcher: { template: '<div data-testid="locale-switcher" />' },
         Icon: { template: '<span data-testid="icon" />' },
+        AIWeLinkHome: { template: '<div data-testid="aiwelink-home" />' },
       },
     },
   })
@@ -74,6 +75,7 @@ describe('HomeView compact mode', () => {
 
     expect(wrapper.get('#custom-home').text()).toBe('Custom home')
     expect(wrapper.find('[data-testid="compact-home"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="aiwelink-home"]').exists()).toBe(false)
   })
 
   it('renders custom URL content ahead of compact mode', () => {
@@ -84,6 +86,7 @@ describe('HomeView compact mode', () => {
 
     expect(wrapper.get('iframe').attributes('src')).toBe('https://example.com/home')
     expect(wrapper.find('[data-testid="compact-home"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="aiwelink-home"]').exists()).toBe(false)
   })
 
   it('treats whitespace-only custom content as empty and selects compact mode', () => {
@@ -92,12 +95,12 @@ describe('HomeView compact mode', () => {
     expect(wrapper.get('[data-testid="compact-home"]').text()).toContain('Test site')
   })
 
-  it.each([undefined, false])('selects the default home when compact mode is %s', (enabled) => {
+  it.each([undefined, false])('selects the AIWeLink home when compact mode is %s', (enabled) => {
     const settings = enabled === undefined ? {} : { compact_home_enabled: enabled }
     const wrapper = mountHome(settings)
 
     expect(wrapper.find('[data-testid="compact-home"]').exists()).toBe(false)
-    expect(wrapper.find('.terminal-container').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="aiwelink-home"]').exists()).toBe(true)
   })
 
   it('links unauthenticated visitors to login', () => {
