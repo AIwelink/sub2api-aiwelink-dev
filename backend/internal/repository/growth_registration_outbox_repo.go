@@ -253,13 +253,6 @@ func (r *growthRegistrationOutboxRepository) DeadLetterClaimed(
 	return requireGrowthRegistrationClaim(result, outboxID)
 }
 
-func (r *growthRegistrationOutboxRepository) validateDatabase() error {
-	if r == nil || r.db == nil {
-		return errors.New("nil growth registration outbox database")
-	}
-	return nil
-}
-
 func (r *growthRegistrationOutboxRepository) sqlExecutor(ctx context.Context) (sqlQueryExecutor, error) {
 	if r == nil || r.db == nil {
 		return nil, errors.New("nil growth registration outbox database")
