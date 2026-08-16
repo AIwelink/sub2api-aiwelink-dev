@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -29,6 +30,31 @@ func TestRedactedProxyForLog(t *testing.T) {
 	require.NotContains(t, got, secret)
 	require.Equal(t, directProxyKey, redactedProxyForLog(""))
 	require.Equal(t, "<invalid-proxy-url>", redactedProxyForLog("://broken"))
+}
+
+func TestTLSFingerprintTransportLogsDoNotIncludeProxyAddress(t *testing.T) {
+	var logs bytes.Buffer
+	originalLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	t.Cleanup(func() { slog.SetDefault(originalLogger) })
+
+	for _, rawProxyURL := range []string{
+		"http://alice:super-secret@proxy.example:8080",
+		"socks5://alice:super-secret@proxy.example:1080",
+	} {
+		proxyURL, err := url.Parse(rawProxyURL)
+		require.NoError(t, err)
+		_, err = buildUpstreamTransportWithTLSFingerprint(
+			poolSettings{},
+			proxyURL,
+			&tlsfingerprint.Profile{Name: "test"},
+		)
+		require.NoError(t, err)
+	}
+
+	require.NotContains(t, logs.String(), "proxy.example")
+	require.NotContains(t, logs.String(), "alice")
+	require.NotContains(t, logs.String(), "super-secret")
 }
 
 func TestHTTPUpstreamDoCanDisableRedirectsPerRequest(t *testing.T) {

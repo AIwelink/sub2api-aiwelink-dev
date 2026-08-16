@@ -1388,7 +1388,7 @@ func buildUpstreamTransportWithTLSFingerprint(settings poolSettings, proxyURL *u
 		switch scheme {
 		case "socks5", "socks5h":
 			// SOCKS5 代理：使用 SOCKS5ProxyDialer
-			slog.Debug("tls_fingerprint_transport_socks5", "proxy", proxyURL.Host)
+			slog.Debug("tls_fingerprint_transport_socks5")
 			socks5Dialer := tlsfingerprint.NewSOCKS5ProxyDialer(profile, proxyURL)
 			transport.DialTLSContext = socks5Dialer.DialTLSContext
 		case "https":
@@ -1397,7 +1397,7 @@ func buildUpstreamTransportWithTLSFingerprint(settings poolSettings, proxyURL *u
 			return buildUpstreamTransport(settings, proxyURL, upstreamProtocolModeDefault)
 		case "http":
 			// HTTP/HTTPS 代理：使用 HTTPProxyDialer（CONNECT 隧道）
-			slog.Debug("tls_fingerprint_transport_http_connect", "proxy", proxyURL.Host)
+			slog.Debug("tls_fingerprint_transport_http_connect")
 			httpDialer := tlsfingerprint.NewHTTPProxyDialer(profile, proxyURL)
 			transport.DialTLSContext = httpDialer.DialTLSContext
 		default:
