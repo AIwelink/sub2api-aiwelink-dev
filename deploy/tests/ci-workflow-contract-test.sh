@@ -16,6 +16,11 @@ GROWTH_CANARY="$ROOT_DIR/.github/workflows/growth-public-canary.yml"
 GROWTH_CANARY_SCRIPT="$ROOT_DIR/deploy/tests/growth-public-canary.sh"
 MAKEFILE="$ROOT_DIR/Makefile"
 IMAGE_SUMMARY="$ROOT_DIR/deploy/image-publish-summary.sh"
+VERSION_FILE="$ROOT_DIR/backend/cmd/server/VERSION"
+UPSTREAM_VERSION_FILE="$ROOT_DIR/backend/cmd/server/UPSTREAM_VERSION"
+OFFICIAL_LAYOUT="$ROOT_DIR/frontend/src/components/layout/AppLayout.vue"
+OFFICIAL_HEADER="$ROOT_DIR/frontend/src/components/layout/AppHeader.vue"
+OFFICIAL_SIDEBAR="$ROOT_DIR/frontend/src/components/layout/AppSidebar.vue"
 
 assert_contains() {
   local file=$1 text=$2
@@ -89,7 +94,7 @@ assert_count "$TRIVY_IGNORE" 'expired_at: 2026-10-06' 2
 assert_count "$TRIVY_IGNORE" 'expired_at: 2026-11-11' 1
 assert_not_contains "$TRIVY_IGNORE" 'backend/Dockerfile'
 
-GO_VERSION=$(awk '$1 == "go" { print $2; exit }' "$GO_MOD")
+GO_VERSION=$(awk '$1 == "go" { print $2; exit }' "$GO_MOD" | tr -d '\r')
 [ -n "$GO_VERSION" ] || {
   printf 'missing Go version in %s\n' "$GO_MOD" >&2
   exit 1
@@ -127,5 +132,49 @@ assert_not_contains "$MAKEFILE" 'FRONTEND_CRITICAL_VITEST'
 assert_contains "$ROOT_DOCKERFILE" 'ARG NODE_IMAGE=node:24-alpine'
 test ! -e "$ROOT_DIR/.github/workflows/publish-aiwelink-dev-image.yml"
 test ! -e "$ROOT_DIR/.github/workflows/cla.yml"
+
+# The application tree must be the official upstream UI. The old AIWeLink
+# workbench overlay is intentionally excluded from the release branch.
+AIWELINK_VERSION=$(tr -d '\r\n' < "$VERSION_FILE")
+UPSTREAM_VERSION=$(tr -d '\r\n' < "$UPSTREAM_VERSION_FILE")
+[ "$UPSTREAM_VERSION" = '0.1.176' ] || {
+  printf 'expected Sub2API upstream version 0.1.176, found %s\n' "$UPSTREAM_VERSION" >&2
+  exit 1
+}
+[ "$AIWELINK_VERSION" = '0.1.176-1' ] || {
+  printf 'expected AIWeLink version 0.1.176-1, found %s\n' "$AIWELINK_VERSION" >&2
+  exit 1
+}
+assert_not_contains "$OFFICIAL_LAYOUT" 'workbench-shell'
+assert_not_contains "$OFFICIAL_HEADER" 'workbench-header'
+assert_not_contains "$OFFICIAL_SIDEBAR" 'workbench-sidebar'
+if grep -R -n --exclude-dir=node_modules -E 'workbench-(shell|content|header|sidebar)' "$ROOT_DIR/frontend"; then
+  printf 'unexpected workbench UI marker in frontend\n' >&2
+  exit 1
+fi
+
+# When the upstream tag is available (local sync/verification worktrees),
+# every frontend path outside the explicit auth/version allowlist must match
+# that tag exactly. CI clones may not carry upstream-only tags, so the marker
+# and version checks above remain the portable fallback there.
+UPSTREAM_REF="v${UPSTREAM_VERSION}"
+if git -C "$ROOT_DIR" rev-parse --verify "$UPSTREAM_REF^{commit}" >/dev/null 2>&1; then
+  while IFS= read -r changed; do
+    case "$changed" in
+      frontend/package.json|frontend/pnpm-lock.yaml|\
+      frontend/src/api/auth.ts|frontend/src/api/authSecrets.ts|frontend/src/api/client.ts|frontend/src/api/tokenRefresh.ts|\
+      frontend/src/api/__tests__/auth-oauth-adoption.spec.ts|frontend/src/api/__tests__/authSecrets.spec.ts|frontend/src/api/__tests__/client.spec.ts|frontend/src/api/__tests__/tokenRefresh.spec.ts|\
+      frontend/src/components/AliyunCaptchaWidget.vue|frontend/src/components/auth/*|frontend/src/components/common/VersionBadge.vue|frontend/src/components/common/__tests__/VersionBadge.spec.ts|\
+      frontend/src/stores/app.ts|frontend/src/stores/auth.ts|frontend/src/stores/__tests__/auth.spec.ts|frontend/src/types/index.ts|\
+      frontend/src/utils/oauthAffiliate.ts|frontend/src/utils/pendingRegistration.ts|frontend/src/utils/__tests__/oauthAffiliate.spec.ts|frontend/src/utils/__tests__/pendingRegistration.spec.ts|\
+      frontend/src/views/auth/*|frontend/src/views/user/CustomPageView.vue)
+        ;;
+      frontend/*)
+        printf 'frontend path is outside the upstream allowlist: %s\n' "$changed" >&2
+        exit 1
+        ;;
+    esac
+  done < <(git -C "$ROOT_DIR" diff --name-only "$UPSTREAM_REF" -- frontend)
+fi
 
 printf 'CI workflow contract checks passed\n'
