@@ -37,6 +37,23 @@ function maxConnectionAlpha() {
   return Math.max(...alphas)
 }
 
+function maxFillAlpha(color: string) {
+  const alphas = fillStyles
+    .filter((style) => style.startsWith(`rgba(${color},`))
+    .map((style) => Number(style.match(/,\s*([\d.]+)\)$/)?.[1]))
+  return Math.max(...alphas)
+}
+
+function pointerConnectionSamples(pointerX: number, pointerY: number) {
+  return context.lineTo.mock.calls.flatMap(([lineX, lineY], index) => {
+    if (Number(lineX) !== pointerX || Number(lineY) !== pointerY) return []
+
+    const [particleX, particleY] = context.moveTo.mock.calls[index]
+    const alpha = Number(strokeStyles[index]?.match(/,\s*([\d.]+)\)$/)?.[1])
+    return [{ x: Number(particleX), y: Number(particleY), alpha }]
+  })
+}
+
 function mockClusteredParticles(clusteredCount: number) {
   let randomCall = 0
   vi.spyOn(Math, 'random').mockImplementation(() => {
@@ -91,29 +108,53 @@ describe('ParticleNetwork', () => {
     vi.unstubAllGlobals()
   })
 
-  it('uses warm gold and sparse rose only in the light-theme canvas', async () => {
+  it('deepens light-theme links and particles by thirty percent', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     const wrapper = mount(ParticleNetwork, { props: { interactive: false } })
     await nextTick()
 
-    expect(maxConnectionAlpha()).toBeGreaterThanOrEqual(.14)
-    expect(strokeStyles.some((style) => style.startsWith('rgba(198, 121, 20,'))).toBe(true)
-    expect(strokeStyles.some((style) => style.startsWith('rgba(239, 63, 114,'))).toBe(true)
-    expect(strokeStyles.some((style) => style.startsWith('rgba(59, 130, 246,'))).toBe(false)
-    expect(fillStyles.some((style) => style.startsWith('rgba(198, 121, 20,'))).toBe(true)
-    expect(fillStyles.some((style) => style.startsWith('rgba(239, 63, 114,'))).toBe(true)
-    wrapper.unmount()
+    try {
+      expect(maxConnectionAlpha()).toBeCloseTo(.18 * 1.3)
+      expect(strokeStyles.some((style) => style.startsWith('rgba(198, 121, 20,'))).toBe(true)
+      expect(strokeStyles.some((style) => style.startsWith('rgba(239, 63, 114,'))).toBe(true)
+      expect(strokeStyles.some((style) => style.startsWith('rgba(59, 130, 246,'))).toBe(false)
+      expect(fillStyles.some((style) => style.startsWith('rgba(198, 121, 20,'))).toBe(true)
+      expect(fillStyles.some((style) => style.startsWith('rgba(239, 63, 114,'))).toBe(true)
+      expect(maxFillAlpha('198, 121, 20')).toBeCloseTo(.18 * 1.3)
+      expect(maxFillAlpha('239, 63, 114')).toBeCloseTo((.18 + .08) * 1.3)
+    } finally {
+      wrapper.unmount()
+    }
   })
 
-  it('keeps dark-theme connection lines visibly present without pointer boost', async () => {
+  it('keeps dark-theme connection, pointer, and fill alpha unchanged', async () => {
     document.documentElement.classList.add('dark')
     vi.spyOn(Math, 'random').mockReturnValue(0)
-    const wrapper = mount(ParticleNetwork, { props: { interactive: false } })
+    const wrapper = mount(ParticleNetwork)
     await nextTick()
+    const animationFrame = vi.mocked(requestAnimationFrame).mock.calls[0]?.[0]
 
-    expect(maxConnectionAlpha()).toBeGreaterThanOrEqual(.22)
-    expect(strokeStyles.some((style) => style.startsWith('rgba(255, 198, 72,'))).toBe(true)
-    wrapper.unmount()
+    try {
+      expect(maxConnectionAlpha()).toBeCloseTo(.24)
+      expect(strokeStyles.some((style) => style.startsWith('rgba(255, 198, 72,'))).toBe(true)
+      expect(maxFillAlpha('255, 198, 72')).toBeCloseTo(.18 + .16)
+      expect(maxFillAlpha('239, 63, 114')).toBeCloseTo(.18 + .16 + .08)
+
+      context.moveTo.mockClear()
+      context.lineTo.mockClear()
+      strokeStyles.length = 0
+      window.dispatchEvent(new MouseEvent('pointermove', { clientX: 50, clientY: 50 }))
+      animationFrame?.(0)
+
+      const pointerSamples = pointerConnectionSamples(50, 50)
+      expect(pointerSamples.length).toBeGreaterThan(0)
+      pointerSamples.forEach(({ x, y, alpha }) => {
+        const baseAlpha = (1 - Math.hypot(x - 50, y - 50) / 150) * .4
+        expect(alpha).toBeCloseTo(baseAlpha)
+      })
+    } finally {
+      wrapper.unmount()
+    }
   })
 
   it('draws grab lines from nearby particles directly to the pointer', async () => {
@@ -122,15 +163,23 @@ describe('ParticleNetwork', () => {
     await nextTick()
     const animationFrame = vi.mocked(requestAnimationFrame).mock.calls[0]?.[0]
 
+    context.moveTo.mockClear()
     context.lineTo.mockClear()
     strokeStyles.length = 0
     window.dispatchEvent(new MouseEvent('pointermove', { clientX: 50, clientY: 50 }))
     animationFrame?.(0)
 
-    expect(context.lineTo).toHaveBeenCalledWith(50, 50)
-    expect(maxConnectionAlpha()).toBeGreaterThan(.2)
-    expect(maxConnectionAlpha()).toBeLessThanOrEqual(.42)
-    wrapper.unmount()
+    try {
+      expect(context.lineTo).toHaveBeenCalledWith(50, 50)
+      const pointerSamples = pointerConnectionSamples(50, 50)
+      expect(pointerSamples.length).toBeGreaterThan(0)
+      pointerSamples.forEach(({ x, y, alpha }) => {
+        const baseAlpha = (1 - Math.hypot(x - 50, y - 50) / 150) * .4
+        expect(alpha).toBeCloseTo(baseAlpha * 1.3)
+      })
+    } finally {
+      wrapper.unmount()
+    }
   })
 
   it('scales desktop density by canvas area and uses reference-sized points', async () => {

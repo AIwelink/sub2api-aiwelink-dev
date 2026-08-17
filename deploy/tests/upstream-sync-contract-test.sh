@@ -8,6 +8,9 @@ VALIDATE_VERSION="$ROOT_DIR/backend/scripts/validate-version.sh"
 LAYOUT_FILE="$ROOT_DIR/frontend/src/components/layout/AppLayout.vue"
 FRONTEND_SRC="$ROOT_DIR/frontend/src"
 HOME_VIEW="$ROOT_DIR/frontend/src/views/HomeView.vue"
+HOME_NAVIGATION="$ROOT_DIR/frontend/src/components/home/HomepageNavigation.vue"
+HOME_HERO="$ROOT_DIR/frontend/src/components/home/HomepageHero.vue"
+HOME_FINAL_CTA="$ROOT_DIR/frontend/src/components/home/HomepageFinalCta.vue"
 THEME_FILE="$ROOT_DIR/frontend/src/styles/theme.css"
 FRONTEND_ENTRY="$ROOT_DIR/frontend/src/main.ts"
 
@@ -67,6 +70,17 @@ fi
 
 grep -Fq '@/components/home/AIWeLinkHome.vue' "$HOME_VIEW" \
   || fail "HomeView does not use @/components/home/AIWeLinkHome.vue"
+
+for HOME_ENTRY in "$HOME_NAVIGATION" "$HOME_HERO" "$HOME_FINAL_CTA"; do
+  grep -Fq ": '/login'" "$HOME_ENTRY" \
+    || fail "homepage entry does not target /login: $HOME_ENTRY"
+  if grep -Fq ": '/register'" "$HOME_ENTRY"; then
+    fail "homepage entry still targets /register: $HOME_ENTRY"
+  fi
+done
+
+grep -Fq "t('home.login')" "$HOME_NAVIGATION" \
+  || fail "homepage navigation does not use the login label"
 
 [ -f "$THEME_FILE" ] || fail "theme file is missing: $THEME_FILE"
 grep -Fq -- '--color-primary-500: 210 31 75;' "$THEME_FILE" \

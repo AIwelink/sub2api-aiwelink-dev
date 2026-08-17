@@ -34,7 +34,7 @@
         </button>
 
         <router-link :to="destination" class="navigation-command">
-          {{ authenticated ? t('home.dashboard') : t('home.redesign.nav.register') }}
+          {{ authenticated ? t('home.dashboard') : t('home.login') }}
         </router-link>
       </div>
     </nav>
@@ -60,7 +60,7 @@ defineEmits<{
 }>()
 
 const { t } = useI18n()
-const destination = computed(() => props.authenticated ? props.dashboardPath : '/register')
+const destination = computed(() => props.authenticated ? props.dashboardPath : '/login')
 </script>
 
 <style scoped>
