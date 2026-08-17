@@ -58,6 +58,20 @@ function mountContent(authenticated = false, dashboardPath = '/dashboard') {
   })
 }
 
+function mountNavigation(authenticated = false, dashboardPath = '/dashboard') {
+  return mount(HomepageNavigation, {
+    props: {
+      authenticated,
+      dashboardPath,
+      dark: true,
+      docUrl: '',
+    },
+    global: {
+      stubs: { RouterLink: RouterLinkStub, LocaleSwitcher: true, Icon: true },
+    },
+  })
+}
+
 describe('AIWeLink homepage content', () => {
   it('keeps warm and blue accents out of content components', () => {
     const componentSources = [
@@ -79,6 +93,8 @@ describe('AIWeLink homepage content', () => {
   it('renders the approved unframed content without a model count or carousel', () => {
     const wrapper = mountContent()
     const text = wrapper.text()
+    const heroSource = readFileSync(resolve('src/components/home/HomepageHero.vue'), 'utf8')
+    const heroDescriptionRule = heroSource.match(/\.hero-description\s*\{[^}]*\}/)?.[0]
 
     expect(wrapper.get('h1').text().replace(/\s+/g, ' ').trim()).toBe('AIwelink API')
     expect(text).toContain('Codex')
@@ -90,17 +106,29 @@ describe('AIWeLink homepage content', () => {
     expect(text).toContain('GPT')
     expect(text).toContain('Claude')
     expect(text).toContain('Gemini')
+    expect(text).toContain('一个 API，连接所有主流模型。为开发者、团队、企业提供稳定、统一、透明的模型接入。')
+    expect(text).toContain('从 Coding 到 科研 与 Agent 接入')
+    expect(text).toContain('让模型成为工作流的一部分。')
+    expect(text).toContain('现在，开始你的创造')
     expect(text).not.toContain('三种模型')
     expect(wrapper.find('[data-testid="model-carousel"]').exists()).toBe(false)
     expect(wrapper.find('.card').exists()).toBe(false)
+    expect(heroDescriptionRule).toContain('max-width: 700px')
   })
 
-  it('uses registration for guests and the supplied dashboard for authenticated users', () => {
-    const guestLink = mountContent().get('[data-testid="hero-primary"]')
-    const memberLink = mountContent(true, '/admin/dashboard').get('[data-testid="hero-primary"]')
+  it('uses login for guest entry points and the supplied dashboard for authenticated users', () => {
+    const guestContent = mountContent()
+    const memberContent = mountContent(true, '/admin/dashboard')
+    const guestNavigation = mountNavigation(false)
+    const memberNavigation = mountNavigation(true, '/admin/dashboard')
 
-    expect(guestLink.findComponent(RouterLinkStub).props('to')).toBe('/register')
-    expect(memberLink.findComponent(RouterLinkStub).props('to')).toBe('/admin/dashboard')
+    expect(guestNavigation.get('.navigation-command').text()).toBe('登录')
+    expect(guestNavigation.get('.navigation-command').findComponent(RouterLinkStub).props('to')).toBe('/login')
+    expect(guestContent.get('[data-testid="hero-primary"]').findComponent(RouterLinkStub).props('to')).toBe('/login')
+    expect(guestContent.get('.final-command').findComponent(RouterLinkStub).props('to')).toBe('/login')
+    expect(memberNavigation.get('.navigation-command').findComponent(RouterLinkStub).props('to')).toBe('/admin/dashboard')
+    expect(memberContent.get('[data-testid="hero-primary"]').findComponent(RouterLinkStub).props('to')).toBe('/admin/dashboard')
+    expect(memberContent.get('.final-command').findComponent(RouterLinkStub).props('to')).toBe('/admin/dashboard')
   })
 
   it('uses a directional animated track for the hero scroll cue', () => {
@@ -113,17 +141,7 @@ describe('AIWeLink homepage content', () => {
   })
 
   it('keeps the wordmark fixed and emits the existing theme action', async () => {
-    const wrapper = mount(HomepageNavigation, {
-      props: {
-        authenticated: false,
-        dashboardPath: '/dashboard',
-        dark: true,
-        docUrl: '',
-      },
-      global: {
-        stubs: { RouterLink: RouterLinkStub, LocaleSwitcher: true, Icon: true },
-      },
-    })
+    const wrapper = mountNavigation()
 
     expect(wrapper.get('[data-testid="home-wordmark"]').text()).toBe('AIwelink')
     await wrapper.get('[data-testid="home-theme-toggle"]').trigger('click')
