@@ -7,11 +7,11 @@ const aiwelinkHome = readFileSync(resolve(process.cwd(), 'src/components/home/AI
 const auth = readFileSync(resolve(process.cwd(), 'src/components/layout/AuthLayout.vue'), 'utf8')
 
 describe('public theme surfaces', () => {
-  it('keeps compact and branded home variants on their intended theme boundaries', () => {
-    expect(home).toContain('bg-canvas text-theme-text')
-    expect(home).toContain('border-theme-border')
-    expect(home).toContain('hover:bg-surface-muted')
-    expect(home).not.toMatch(/dark:(?:from|via|to)-dark-(?:900|950)/)
+  it('keeps the official compact home intact and themes the branded default home', () => {
+    expect(home).toContain('bg-gray-50 text-gray-900 dark:bg-dark-950 dark:text-white')
+    expect(home).toContain('border-gray-200 px-4 py-4 sm:px-6 dark:border-dark-800')
+    expect(home).toContain('text-gray-500 hover:bg-gray-100 dark:text-dark-400')
+    expect(home).not.toContain('bg-canvas text-theme-text')
 
     expect(aiwelinkHome).toContain('class="aiwelink-home"')
     expect(aiwelinkHome).toContain(":class=\"{ 'is-dark': dark }\"")

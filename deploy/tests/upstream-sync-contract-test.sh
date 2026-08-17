@@ -54,7 +54,7 @@ grep -Fq 'bg-mesh-gradient' "$LAYOUT_FILE" \
 grep -Fq 'lg:ml-64' "$LAYOUT_FILE" \
   || fail "official v0.1.177 sidebar width is missing"
 
-for MARKER in workbench-shell workbench-content workbench-header; do
+for MARKER in workbench-shell workbench-content workbench-header workbench-sidebar; do
   if grep -R -n -F -- "$MARKER" "$FRONTEND_SRC" >&2; then
     fail "rejected marker $MARKER remains in frontend/src"
   fi
