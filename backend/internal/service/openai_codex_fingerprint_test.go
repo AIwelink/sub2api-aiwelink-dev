@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -293,6 +294,9 @@ func TestFingerprintIDs_HeaderAndBody_TurnID_Consistent(t *testing.T) {
 	// 头改写
 	h := http.Header{}
 	h.Set("x-codex-turn-metadata", `{"installation_id":"x","session_id":"x","thread_id":"x","turn_id":"x","window_id":"x:0"}`)
+	// The IDs are resolved before either rewrite path; force a millisecond
+	// boundary so an independent header clock read cannot accidentally match.
+	time.Sleep(2 * time.Millisecond)
 	applyCodexFingerprintHeaders(h, ids)
 
 	// 体改写（使用同一份 ids）
@@ -329,6 +333,8 @@ func TestFingerprintIDs_HeaderAndBody_TurnID_Consistent(t *testing.T) {
 	assert.Equal(t, headerTurnID, bodyTurnID, "头和体的 turn_id 必须一致")
 	assert.Equal(t, headerTurnID, bodyEmbeddedTurnID, "头和体内嵌 turn-metadata 的 turn_id 必须一致")
 	assert.Equal(t, ids.turnID, headerTurnID, "所有 turn_id 都应来自同一份 ids")
+	assert.Equal(t, headerMeta["turn_started_at_unix_ms"], bodyMeta["turn_started_at_unix_ms"], "头和体的 turn_started_at_unix_ms 必须一致")
+	assert.Equal(t, float64(ids.turnStartedAtUnixMs), headerMeta["turn_started_at_unix_ms"], "时间戳应来自同一份 ids")
 }
 
 // --- applyCodexFingerprintClientMetadata ---
@@ -487,6 +493,9 @@ func rawVsMapClientMetadata(t *testing.T, body []byte, ids *codexFingerprintIDs)
 	applyCodexFingerprintClientMetadata(decoded, ids)
 	mapCM, _ := decoded["client_metadata"].(map[string]any)
 
+	// Force the two independent wall-clock reads in the pre-fix implementation
+	// onto different milliseconds so this regression is deterministic.
+	time.Sleep(2 * time.Millisecond)
 	rawBody, changed, err := applyCodexFingerprintClientMetadataRaw(body, ids)
 	require.NoError(t, err)
 	require.True(t, changed)
