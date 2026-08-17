@@ -69,9 +69,9 @@ grep -Fq '@/components/home/AIWeLinkHome.vue' "$HOME_VIEW" \
   || fail "HomeView does not use @/components/home/AIWeLinkHome.vue"
 
 [ -f "$THEME_FILE" ] || fail "theme file is missing: $THEME_FILE"
-grep -Fq '#D21F4B' "$THEME_FILE" \
+grep -Fq -- '--color-primary-500: 210 31 75;' "$THEME_FILE" \
   || fail "theme.css is missing AIWeLink primary color #D21F4B"
-grep -Fq '#FFC247' "$THEME_FILE" \
+grep -Fq -- '--color-primary-500: 255 194 71;' "$THEME_FILE" \
   || fail "theme.css is missing AIWeLink accent color #FFC247"
 
 grep -Fq './styles/theme.css' "$FRONTEND_ENTRY" \
