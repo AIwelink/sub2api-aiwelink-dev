@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 
 import ModelDistributionChart from '../ModelDistributionChart.vue'
@@ -48,6 +48,16 @@ vi.mock('vue-chartjs', () => ({
 }))
 
 describe('ModelDistributionChart', () => {
+  beforeEach(() => {
+    document.documentElement.style.setProperty('--color-primary-500', '186 54 80')
+    document.documentElement.style.setProperty('--color-accent-500', '233 190 115')
+  })
+
+  afterEach(() => {
+    document.documentElement.className = ''
+    document.documentElement.removeAttribute('style')
+  })
+
   const modelStats = [
     {
       model: 'model-a',
@@ -88,6 +98,7 @@ describe('ModelDistributionChart', () => {
     const chartData = JSON.parse(wrapper.find('.chart-data').text())
     expect(chartData.labels).toEqual(['model-a', 'model-b'])
     expect(chartData.datasets[0].data).toEqual([1000, 500])
+    expect(chartData.datasets[0].backgroundColor[0]).toBe('rgb(186, 54, 80)')
 
     const rows = wrapper.findAll('tbody tr')
     expect(rows[0].text()).toContain('model-a')
@@ -183,7 +194,7 @@ describe('ModelDistributionChart', () => {
       'Others',
     ])
     expect(chartData.datasets[0].data).toEqual([12, 8, 0, 10])
-    expect(chartData.datasets[0].backgroundColor[0]).toBe('#3b82f6')
+    expect(chartData.datasets[0].backgroundColor[0]).toBe('rgb(186, 54, 80)')
     expect(chartData.datasets[0].backgroundColor[3]).toBe('#94a3b8')
     expect(chartData.datasets[0].backgroundColor[3]).not.toBe(chartData.datasets[0].backgroundColor[0])
 
@@ -197,5 +208,25 @@ describe('ModelDistributionChart', () => {
     expect(rows[3].text()).toContain('4')
     expect(rows[3].text()).toContain('400')
     expect(rows[3].text()).toContain('$10.00')
+  })
+
+  it('updates the primary chart series after a live theme change', async () => {
+    const wrapper = mount(ModelDistributionChart, {
+      props: { modelStats },
+      global: { stubs: { LoadingSpinner: true } },
+    })
+
+    expect(JSON.parse(wrapper.find('.chart-data').text()).datasets[0].backgroundColor[0])
+      .toBe('rgb(186, 54, 80)')
+
+    document.documentElement.style.setProperty('--color-primary-500', '233 190 115')
+    document.documentElement.classList.add('dark')
+
+    await vi.waitFor(() => {
+      expect(JSON.parse(wrapper.find('.chart-data').text()).datasets[0].backgroundColor[0])
+        .toBe('rgb(233, 190, 115)')
+    })
+
+    wrapper.unmount()
   })
 })

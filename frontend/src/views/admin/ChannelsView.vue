@@ -1638,6 +1638,7 @@ onUnmounted(() => {
 
 .channel-tab-active {
   @apply border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400;
+  box-shadow: 0 8px 18px -10px rgb(var(--color-primary-500) / 0.14);
 }
 
 .channel-tab-inactive {
