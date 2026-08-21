@@ -68,28 +68,32 @@ func (r *userRepository) create(ctx context.Context, userIn *service.User, guard
 		return nil
 	}
 
-	// Reuse a caller-owned Ent transaction before asking the base client to
-	// start one. This keeps user creation and adjacent writes atomic.
-	var (
-		tx       *dbent.Tx
-		txClient *dbent.Client
-		txCtx    = ctx
-		err      error
-	)
+	// 统一使用 ent 的事务：保证用户与允许分组的更新原子化，
+	// 并避免基于 *sql.Tx 手动构造 ent client 导致的 ExecQuerier 断言错误。
+	//
+	// 注意：ent 的 Client.Tx 不感知上下文中的事务（只检查 driver 类型），
+	// 因此必须显式检查 TxFromContext：当调用方已开启外部事务（如注册时的
+	// “建用户 + 占用邀请码”原子事务），直接复用其 client，由调用方统一提交/回滚，
+	// 否则用户写入会落入独立事务并自行提交，导致外层事务无法回滚（孤儿用户）。
+	var txClient *dbent.Client
+	txCtx := ctx
+	var ownedTx *dbent.Tx
 	if existingTx := dbent.TxFromContext(ctx); existingTx != nil {
 		txClient = existingTx.Client()
 	} else {
-		tx, err = r.client.Tx(ctx)
-		if err != nil && !errors.Is(err, dbent.ErrTxStarted) {
+		tx, err := r.client.Tx(ctx)
+		switch {
+		case errors.Is(err, dbent.ErrTxStarted):
+			// r.client 本身已是事务绑定 client（client 注入式事务，如集成测试
+			// 夹具 tx.Client()）：直接复用，提交/回滚由 client 的持有方负责。
+			txClient = r.client
+		case err != nil:
 			return err
-		}
-		if err == nil {
-			defer func() { _ = tx.Rollback() }()
+		default:
+			ownedTx = tx
+			defer func() { _ = ownedTx.Rollback() }()
 			txClient = tx.Client()
 			txCtx = dbent.NewTxContext(ctx, tx)
-		} else {
-			tx = nil
-			txClient = r.client
 		}
 	}
 
@@ -161,8 +165,8 @@ func (r *userRepository) create(ctx context.Context, userIn *service.User, guard
 		return err
 	}
 
-	if tx != nil {
-		if err := tx.Commit(); err != nil {
+	if ownedTx != nil {
+		if err := ownedTx.Commit(); err != nil {
 			return err
 		}
 	}
@@ -241,24 +245,23 @@ func (r *userRepository) Update(ctx context.Context, userIn *service.User, field
 		return nil
 	}
 
-	// 使用 ent 事务包裹用户更新与 allowed_groups 同步，避免跨层事务不一致。
-	tx, err := r.client.Tx(ctx)
-	if err != nil && !errors.Is(err, dbent.ErrTxStarted) {
-		return err
-	}
-
 	var txClient *dbent.Client
 	txCtx := ctx
-	if err == nil {
-		defer func() { _ = tx.Rollback() }()
-		txClient = tx.Client()
-		txCtx = dbent.NewTxContext(ctx, tx)
+	var ownedTx *dbent.Tx
+	if existingTx := dbent.TxFromContext(ctx); existingTx != nil {
+		txClient = existingTx.Client()
 	} else {
-		// 已处于外部事务中（ErrTxStarted），复用当前事务 client 并由调用方负责提交/回滚。
-		if existingTx := dbent.TxFromContext(ctx); existingTx != nil {
-			txClient = existingTx.Client()
-		} else {
+		tx, err := r.client.Tx(ctx)
+		switch {
+		case errors.Is(err, dbent.ErrTxStarted):
 			txClient = r.client
+		case err != nil:
+			return err
+		default:
+			ownedTx = tx
+			defer func() { _ = ownedTx.Rollback() }()
+			txClient = tx.Client()
+			txCtx = dbent.NewTxContext(ctx, tx)
 		}
 	}
 
@@ -349,8 +352,8 @@ func (r *userRepository) Update(ctx context.Context, userIn *service.User, field
 		return err
 	}
 
-	if tx != nil {
-		if err := tx.Commit(); err != nil {
+	if ownedTx != nil {
+		if err := ownedTx.Commit(); err != nil {
 			return err
 		}
 	}
