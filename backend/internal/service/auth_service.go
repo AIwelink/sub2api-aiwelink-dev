@@ -255,7 +255,7 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 		Status:       StatusActive,
 	}
 
-	token, err := s.createUserAndRecordGrowth(ctx, user)
+	token, err := s.createUserAndClaimInvitationAndRecordGrowth(ctx, user, invitationRedeemCode)
 	if err != nil {
 		// 优先检查邮箱冲突错误（竞态条件下可能发生）
 		switch {
@@ -263,6 +263,8 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 			return "", nil, ErrEmailExists
 		case errors.Is(err, ErrEmailDomainRegistrationLimit):
 			return "", nil, ErrEmailDomainRegistrationLimit
+		case errors.Is(err, ErrInvitationCodeInvalid):
+			return "", nil, ErrInvitationCodeInvalid
 		default:
 			logger.LegacyPrintf("service.auth", "[Auth] Database error creating user: %v", err)
 			return "", nil, ErrServiceUnavailable
@@ -284,13 +286,8 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 		}
 	}
 
-	// 标记邀请码为已使用（如果使用了邀请码）
-	if invitationRedeemCode != nil {
-		if err := s.redeemRepo.Use(ctx, invitationRedeemCode.ID, user.ID); err != nil {
-			// 邀请码标记失败不影响注册，只记录日志
-			logger.LegacyPrintf("service.auth", "[Auth] Failed to mark invitation code as used for user %d: %v", user.ID, err)
-		}
-	}
+	// 邀请码占用已由 createUserAndClaimInvitationAndRecordGrowth 在“用户创建 + 邀请码占用”的
+	// 同一个数据库事务内原子完成（一次性约束，见函数注释），此处不再单独标记。
 	// 应用优惠码（如果提供且功能已启用）
 	if promoCode != "" && s.promoService != nil && s.settingService != nil && s.settingService.IsPromoCodeEnabled(ctx) {
 		if err := s.promoService.ApplyPromoCode(ctx, user.ID, promoCode); err != nil {
@@ -315,31 +312,49 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 	return token, user, nil
 }
 
-// createUserAndRecordGrowth keeps token generation, the user row, and its
-// durable growth event in one transaction when growth registration is active.
-// An empty token means the native registration path was used.
-func (s *AuthService) createUserAndRecordGrowth(ctx context.Context, user *User) (string, error) {
+// createUserAndClaimInvitationAndRecordGrowth keeps user creation, invitation
+// consumption, growth registration, and token generation in one transaction
+// when an invitation or growth registration is active. The native path keeps
+// its original single-create behavior otherwise.
+func (s *AuthService) createUserAndClaimInvitationAndRecordGrowth(ctx context.Context, user *User, invitation *RedeemCode) (string, error) {
 	if s == nil || s.userRepo == nil {
 		return "", ErrServiceUnavailable
 	}
-	if s.growthRegistration == nil {
+	if invitation == nil && s.growthRegistration == nil {
 		return "", s.createUserWithRegistrationEmailGuard(ctx, user)
 	}
-	if s.entClient == nil {
-		return "", errors.New("growth registration requires transactional Ent client")
-	}
-	if tx := dbent.TxFromContext(ctx); tx != nil {
-		if err := s.createUserWithRegistrationEmailGuard(ctx, user); err != nil {
+
+	commitUser := func(execCtx context.Context) (string, error) {
+		if err := s.createUserWithRegistrationEmailGuard(execCtx, user); err != nil {
 			return "", err
 		}
-		token, err := s.GenerateToken(ctx, user)
+		if invitation != nil {
+			if err := s.redeemRepo.Use(execCtx, invitation.ID, user.ID); err != nil {
+				logger.LegacyPrintf("service.auth", "[Auth] Rejected registration: invitation code %s already claimed (user_id=%d err=%v)", invitation.Code, user.ID, err)
+				return "", ErrInvitationCodeInvalid
+			}
+		}
+		if s.growthRegistration == nil {
+			return "", nil
+		}
+		token, err := s.GenerateToken(execCtx, user)
 		if err != nil {
 			return "", fmt.Errorf("generate token: %w", err)
 		}
-		if err := s.growthRegistration.RecordSuccessfulRegistration(ctx, user); err != nil {
+		if err := s.growthRegistration.RecordSuccessfulRegistration(execCtx, user); err != nil {
 			return "", fmt.Errorf("record growth registration: %w", err)
 		}
 		return token, nil
+	}
+
+	if dbent.TxFromContext(ctx) != nil {
+		return commitUser(ctx)
+	}
+	if s.entClient == nil {
+		if s.growthRegistration != nil {
+			return "", errors.New("growth registration requires transactional Ent client")
+		}
+		return commitUser(ctx)
 	}
 
 	tx, err := s.entClient.Tx(ctx)
@@ -348,15 +363,9 @@ func (s *AuthService) createUserAndRecordGrowth(ctx context.Context, user *User)
 	}
 	defer func() { _ = tx.Rollback() }()
 	txCtx := dbent.NewTxContext(ctx, tx)
-	if err := s.createUserWithRegistrationEmailGuard(txCtx, user); err != nil {
-		return "", err
-	}
-	token, err := s.GenerateToken(txCtx, user)
+	token, err := commitUser(txCtx)
 	if err != nil {
-		return "", fmt.Errorf("generate token: %w", err)
-	}
-	if err := s.growthRegistration.RecordSuccessfulRegistration(txCtx, user); err != nil {
-		return "", fmt.Errorf("record growth registration: %w", err)
+		return "", err
 	}
 	if err := tx.Commit(); err != nil {
 		return "", fmt.Errorf("commit registration transaction: %w", err)

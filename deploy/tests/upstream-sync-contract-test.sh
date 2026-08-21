@@ -32,20 +32,20 @@ assert_single_line "$UPSTREAM_VERSION_FILE" "UPSTREAM_VERSION"
 
 VERSION="$(tr -d '\r' < "$VERSION_FILE")"
 UPSTREAM_VERSION="$(tr -d '\r' < "$UPSTREAM_VERSION_FILE")"
-[ "$VERSION" = "0.1.177-1" ] \
-  || fail "expected VERSION 0.1.177-1, found $VERSION"
-[ "$UPSTREAM_VERSION" = "0.1.177" ] \
-  || fail "expected UPSTREAM_VERSION 0.1.177, found $UPSTREAM_VERSION"
+[ "$VERSION" = "0.1.179-1" ] \
+  || fail "expected VERSION 0.1.179-1, found $VERSION"
+[ "$UPSTREAM_VERSION" = "0.1.179" ] \
+  || fail "expected UPSTREAM_VERSION 0.1.179, found $UPSTREAM_VERSION"
 
 [ -x "$VALIDATE_VERSION" ] || fail "version validator is not executable: $VALIDATE_VERSION"
-"$VALIDATE_VERSION" "v0.1.177-1" >/dev/null 2>&1 \
-  || fail "validate-version.sh rejected exact tag v0.1.177-1"
+"$VALIDATE_VERSION" "v0.1.179-1" >/dev/null 2>&1 \
+  || fail "validate-version.sh rejected exact tag v0.1.179-1"
 
 for INVALID_TAG in \
-  "0.1.177-1" \
-  "refs/tags/v0.1.177-1" \
-  "v0.1.177" \
-  "v0.1.177-2"
+  "0.1.179-1" \
+  "refs/tags/v0.1.179-1" \
+  "v0.1.179" \
+  "v0.1.179-2"
 do
   if "$VALIDATE_VERSION" "$INVALID_TAG" >/dev/null 2>&1; then
     fail "validate-version.sh accepted non-exact tag $INVALID_TAG"

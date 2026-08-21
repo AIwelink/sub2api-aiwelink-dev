@@ -1,8 +1,10 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log"
 	"testing"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 
 type subscriptionExpiryRepoStub struct {
 	listCalls int
+	listErr   error
 }
 
 func (r *subscriptionExpiryRepoStub) Create(context.Context, *UserSubscription) error {
@@ -64,6 +67,9 @@ func (r *subscriptionExpiryRepoStub) ListByGroupID(context.Context, int64, pagin
 
 func (r *subscriptionExpiryRepoStub) List(context.Context, pagination.PaginationParams, *int64, *int64, string, string, string, string) ([]UserSubscription, *pagination.PaginationResult, error) {
 	r.listCalls++
+	if r.listErr != nil {
+		return nil, nil, r.listErr
+	}
 	return nil, &pagination.PaginationResult{Page: 1, Pages: 1}, nil
 }
 
@@ -116,8 +122,9 @@ func (r *subscriptionExpiryRepoStub) BatchUpdateExpiredStatus(context.Context) (
 }
 
 type subscriptionExpirySettingRepoStub struct {
-	values map[string]string
-	err    error
+	values   map[string]string
+	err      error
+	multiErr error
 }
 
 func (r *subscriptionExpirySettingRepoStub) Get(context.Context, string) (*Setting, error) {
@@ -139,8 +146,17 @@ func (r *subscriptionExpirySettingRepoStub) Set(context.Context, string, string)
 	return nil
 }
 
-func (r *subscriptionExpirySettingRepoStub) GetMultiple(context.Context, []string) (map[string]string, error) {
-	return nil, nil
+func (r *subscriptionExpirySettingRepoStub) GetMultiple(_ context.Context, keys []string) (map[string]string, error) {
+	if r.multiErr != nil {
+		return nil, r.multiErr
+	}
+	values := make(map[string]string, len(keys))
+	for _, key := range keys {
+		if value, ok := r.values[key]; ok {
+			values[key] = value
+		}
+	}
+	return values, nil
 }
 
 func (r *subscriptionExpirySettingRepoStub) SetMultiple(context.Context, map[string]string) error {
@@ -181,4 +197,72 @@ func TestSubscriptionExpiryService_ExpiryReminderSettingReadErrorFailsClosed(t *
 	svc.SetSettingRepository(&subscriptionExpirySettingRepoStub{err: errors.New("db down")})
 
 	require.False(t, svc.expiryReminderEnabled(context.Background()))
+}
+
+func TestSubscriptionExpiryService_MissingSMTPSkipsReminderScanAndLogsOncePerInterval(t *testing.T) {
+	repo := &subscriptionExpiryRepoStub{}
+	settingRepo := &subscriptionExpirySettingRepoStub{values: map[string]string{}}
+	emailService := NewEmailService(settingRepo, nil)
+	svc := NewSubscriptionExpiryService(repo, time.Minute)
+	svc.SetSettingRepository(settingRepo)
+	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, emailService))
+
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	previousFlags := log.Flags()
+	log.SetOutput(&logs)
+	log.SetFlags(0)
+	t.Cleanup(func() {
+		log.SetOutput(previousWriter)
+		log.SetFlags(previousFlags)
+	})
+
+	svc.sendExpiryReminders(context.Background())
+	svc.sendExpiryReminders(context.Background())
+
+	require.Zero(t, repo.listCalls)
+	require.Equal(t, 1, bytes.Count(logs.Bytes(), []byte("SMTP is not configured")))
+}
+
+func TestSubscriptionExpiryService_SMTPConfigReadErrorSkipsReminderScan(t *testing.T) {
+	repo := &subscriptionExpiryRepoStub{}
+	settingRepo := &subscriptionExpirySettingRepoStub{
+		values:   map[string]string{},
+		multiErr: errors.New("db down"),
+	}
+	emailService := NewEmailService(settingRepo, nil)
+	svc := NewSubscriptionExpiryService(repo, time.Minute)
+	svc.SetSettingRepository(settingRepo)
+	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, emailService))
+
+	svc.sendExpiryReminders(context.Background())
+
+	require.Zero(t, repo.listCalls)
+}
+
+func TestSubscriptionExpiryService_SubscriptionListErrorDoesNotLeakSensitiveDetails(t *testing.T) {
+	const sensitiveDetail = "api_key=sk-sensitive-value"
+	repo := &subscriptionExpiryRepoStub{listErr: errors.New(sensitiveDetail)}
+	settingRepo := &subscriptionExpirySettingRepoStub{
+		values: map[string]string{SettingKeySMTPHost: "smtp.example.com"},
+	}
+	svc := NewSubscriptionExpiryService(repo, time.Minute)
+	svc.SetSettingRepository(settingRepo)
+	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, NewEmailService(settingRepo, nil)))
+
+	var logs bytes.Buffer
+	previousWriter := log.Writer()
+	previousFlags := log.Flags()
+	log.SetOutput(&logs)
+	log.SetFlags(0)
+	t.Cleanup(func() {
+		log.SetOutput(previousWriter)
+		log.SetFlags(previousFlags)
+	})
+
+	svc.sendExpiryReminders(context.Background())
+
+	require.Equal(t, 1, repo.listCalls)
+	require.Contains(t, logs.String(), "List active subscriptions for reminder failed")
+	require.NotContains(t, logs.String(), sensitiveDetail)
 }
