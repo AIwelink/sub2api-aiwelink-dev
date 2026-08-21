@@ -220,7 +220,7 @@ func (w *openAICompactKeepaliveWriter) Write(data []byte) (int, error) {
 		return 0, nil
 	}
 	// Transparent JSON/SSE passthrough; escaping here would corrupt the upstream protocol.
-	// codeql[disable-next-line=go/reflected-xss]
+	// lgtm[go/reflected-xss]
 	return w.ResponseWriter.Write(data)
 }
 
