@@ -219,8 +219,8 @@ func (w *openAICompactKeepaliveWriter) Write(data []byte) (int, error) {
 	if w.ResponseWriter == nil {
 		return 0, nil
 	}
-	// codeql[go/reflected-xss] Transparent JSON/SSE passthrough; escaping here would corrupt the upstream protocol.
-	return w.ResponseWriter.Write(data)
+	// Transparent JSON/SSE passthrough; escaping here would corrupt the upstream protocol.
+	return w.ResponseWriter.Write(data) // lgtm[go/reflected-xss]
 }
 
 func (w *openAICompactKeepaliveWriter) WriteString(s string) (int, error) {
