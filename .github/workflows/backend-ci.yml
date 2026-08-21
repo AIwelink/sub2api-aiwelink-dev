@@ -18,6 +18,7 @@ concurrency:
 jobs:
   shell:
     runs-on: macos-15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
       - name: Check deployment scripts
@@ -31,6 +32,7 @@ jobs:
 
   compose:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
       - name: Check AIWeLink growth deployment
@@ -38,6 +40,7 @@ jobs:
 
   release-contract:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
       - name: Validate version and release workflow contracts
@@ -45,6 +48,7 @@ jobs:
 
   unit-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
@@ -59,6 +63,7 @@ jobs:
 
   integration-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
@@ -73,6 +78,7 @@ jobs:
 
   growth-contract:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
@@ -87,6 +93,7 @@ jobs:
 
   frontend-checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - name: Setup pnpm
@@ -107,6 +114,7 @@ jobs:
 
   frontend-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - name: Setup pnpm
@@ -127,6 +135,7 @@ jobs:
 
   golangci-lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
@@ -159,6 +168,7 @@ jobs:
 
   frontend-security:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v6
@@ -183,6 +193,7 @@ jobs:
 
   repository-scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
         with:
@@ -201,16 +212,13 @@ jobs:
 
   codeql:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         language: [go, javascript-typescript]
     steps:
       - uses: actions/checkout@v6
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
-        with:
-          languages: ${{ matrix.language }}
       - name: Set up Go
         if: matrix.language == 'go'
         uses: actions/setup-go@v6
@@ -219,6 +227,10 @@ jobs:
           check-latest: false
           cache: true
           cache-dependency-path: backend/go.sum
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
       - name: Build Go database
         if: matrix.language == 'go'
         working-directory: backend
@@ -229,6 +241,7 @@ jobs:
   ci-gate:
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs:
       - shell
       - compose
@@ -255,6 +268,7 @@ jobs:
       github.event_name == 'push' &&
       (github.ref_name == 'aiwelink-dev' || github.ref_name == 'main')
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     env:
       REGISTRY: docker.aiwelink.cc
       IMAGE_NAME: docker.aiwelink.cc/sub2api-aiwelink-dev

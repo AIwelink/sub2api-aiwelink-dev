@@ -55,6 +55,19 @@ assert_before() {
   }
 }
 
+assert_job_timeout() {
+  local file=$1 job=$2 expected=$3
+  awk -v job="$job" -v expected="$expected" '
+    $0 ~ "^  " job ":$" { in_job=1; next }
+    in_job && $0 ~ /^  [[:alnum:]_-]+:$/ { in_job=0 }
+    in_job && $0 ~ "^    timeout-minutes: " expected "$" { found=1 }
+    END { exit(found ? 0 : 1) }
+  ' "$file" || {
+    printf 'expected timeout-minutes: %s in job %s in %s\n' "$expected" "$job" "$file" >&2
+    exit 1
+  }
+}
+
 assert_contains "$CI" 'branches: [aiwelink-dev, main]'
 assert_contains "$CI" 'cancel-in-progress: true'
 assert_contains "$CI" 'ci-gate:'
@@ -63,6 +76,23 @@ assert_contains "$CI" 'needs: ci-gate'
 assert_contains "$CI" 'release-contract:'
 assert_contains "$CI" 'make test-ci-contract'
 assert_contains "$CI" '      - release-contract'
+assert_job_timeout "$CI" shell 10
+assert_job_timeout "$CI" compose 10
+assert_job_timeout "$CI" release-contract 10
+assert_job_timeout "$CI" unit-tests 15
+assert_job_timeout "$CI" integration-tests 20
+assert_job_timeout "$CI" growth-contract 10
+assert_job_timeout "$CI" frontend-checks 15
+assert_job_timeout "$CI" frontend-tests 15
+assert_job_timeout "$CI" golangci-lint 35
+assert_job_timeout "$CI" backend-security 20
+assert_job_timeout "$CI" frontend-security 15
+assert_job_timeout "$CI" repository-scan 15
+assert_job_timeout "$CI" codeql 30
+assert_job_timeout "$CI" ci-gate 5
+assert_job_timeout "$CI" publish-image 45
+assert_before "$CI" 'name: Set up Go' 'name: Initialize CodeQL'
+assert_before "$CI" 'name: Initialize CodeQL' 'name: Build Go database'
 assert_contains "$CI" "github.event_name == 'push'"
 assert_contains "$CI" 'type=raw,value=dev,enable='
 assert_contains "$CI" 'type=raw,value=latest,enable='
